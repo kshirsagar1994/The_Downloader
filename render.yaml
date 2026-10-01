@@ -1,0 +1,57 @@
+# Render Blueprint Specification for The Downloader (www.downloader.biz)
+# https://render.com/docs/blueprint-spec
+
+services:
+  # ---------------------------------------------------------------------------
+  # 1. Backend API & Media Processing Engine (FastAPI + yt-dlp + FFmpeg)
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: the-downloader-api
+    runtime: docker
+    dockerfilePath: infrastructure/docker/Dockerfile.api
+    plan: starter # Starter plan recommended for FFmpeg transcoding and video processing
+    region: oregon
+    numInstances: 1
+    healthCheckPath: /api/health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: DOWNLOAD_DIR
+        value: /tmp/media-downloader
+      - key: DOWNLOAD_EXPIRY_SECONDS
+        value: "3600"
+      - key: MAX_FILE_SIZE_MB
+        value: "500"
+      - key: ALLOWED_ORIGINS
+        value: https://www.downloader.biz,https://downloader.biz
+
+  # ---------------------------------------------------------------------------
+  # 2. Frontend Web Application (Next.js 15 App Router)
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: the-downloader-web
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: apps/web
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    healthCheckPath: /
+    customDomains:
+      - www.downloader.biz
+      - downloader.biz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        fromService:
+          type: web
+          name: the-downloader-api
+          property: host
+      - key: INTERNAL_API_URL
+        fromService:
+          type: web
+          name: the-downloader-api
+          property: host

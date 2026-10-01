@@ -1,0 +1,26 @@
+FROM python:3.12-slim-bookworm
+
+# Install runtime dependencies including ffmpeg and curl for healthchecks
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    curl \
+    nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy dependency specifications
+COPY apps/api/requirements.txt ./requirements.txt
+
+# Install python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy backend codebase
+COPY apps/api /app
+
+# Create ephemeral download directory
+RUN mkdir -p /tmp/media-downloader && chmod 777 /tmp/media-downloader
+
+EXPOSE 8000
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
