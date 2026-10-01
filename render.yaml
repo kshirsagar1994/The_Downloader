@@ -1,4 +1,4 @@
-# Render Blueprint Specification for The Downloader (www.downloader.biz)
+# Render Blueprint Specification for The Downloader
 # https://render.com/docs/blueprint-spec
 
 services:
@@ -9,7 +9,7 @@ services:
     name: the-downloader-api
     runtime: docker
     dockerfilePath: infrastructure/docker/Dockerfile.api
-    plan: starter # Starter plan recommended for FFmpeg transcoding and video processing
+    plan: starter
     region: oregon
     numInstances: 1
     healthCheckPath: /api/health
@@ -39,9 +39,6 @@ services:
     buildCommand: npm install && npm run build
     startCommand: npm run start
     healthCheckPath: /
-    customDomains:
-      - www.downloader.biz
-      - downloader.biz
     envVars:
       - key: NODE_ENV
         value: production
