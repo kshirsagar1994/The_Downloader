@@ -81,12 +81,20 @@ async def get_youtube_health():
     # 5. Cookie configuration status
     cookies_configured = bool(settings.resolved_cookiefile)
 
+    # 6. Proxy and PO Token direct flags
+    proxy_configured = bool(settings.resolved_proxy)
+    po_token_configured = bool(settings.YOUTUBE_PO_TOKEN)
+
     overall_status = "ok" if (ytdlp_ok and ffmpeg_ok) else "degraded"
     details = "YouTube extraction engine operational"
     if pot_configured and pot_available:
         details += " with active PO Token Provider"
+    elif po_token_configured:
+        details += " with direct PO Token"
     elif cookies_configured:
-        details += " with optional authentication cookies"
+        details += " with authentication cookies"
+    elif proxy_configured:
+        details += " with proxy routing"
     else:
         details += " in direct player client mode"
 
@@ -98,6 +106,8 @@ async def get_youtube_health():
         po_token_provider=pot_configured,
         po_token_provider_available=pot_available,
         cookies_configured=cookies_configured,
+        proxy_configured=proxy_configured,
+        po_token_configured=po_token_configured,
         details=details,
     )
 

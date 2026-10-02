@@ -27,4 +27,6 @@ class YouTubeHealthResponse(BaseModel):
     po_token_provider: bool = False
     po_token_provider_available: bool = False
     cookies_configured: bool = False
+    proxy_configured: bool = False
+    po_token_configured: bool = False
     details: str | None = None

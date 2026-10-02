@@ -10,15 +10,27 @@ def build_base_ydl_opts(overrides: dict[str, Any] | None = None) -> dict[str, An
     """
     Builds a secure, optimized base dictionary of yt-dlp options.
     Automatically configures:
-    1. YouTube player clients (android, android_creator, tv_embedded, ios, web)
-    2. Dynamic BgUtils PO Token Provider (youtubepot-bgutilhttp:base_url) if configured
+    1. YouTube player clients (visionos, web, mweb, ios, tv_embedded)
+    2. Dynamic BgUtils PO Token Provider (youtubepot-bgutilhttp:base_url) or direct PO tokens
     3. Cookiefile if configured
-    4. Timeouts, geo-bypass, safety limits
+    4. HTTP/HTTPS/SOCKS Proxy if configured
+    5. Timeouts, geo-bypass, safety limits
     """
+    youtube_args: dict[str, Any] = {
+        "player_client": settings.resolved_youtube_clients,
+    }
+
+    if settings.YOUTUBE_PO_TOKEN and settings.YOUTUBE_PO_TOKEN.strip():
+        po_token_val = settings.YOUTUBE_PO_TOKEN.strip()
+        if "+" not in po_token_val and "." not in po_token_val:
+            po_token_val = f"web.player+{po_token_val}"
+        youtube_args["po_token"] = [po_token_val]
+
+    if settings.YOUTUBE_VISITOR_DATA and settings.YOUTUBE_VISITOR_DATA.strip():
+        youtube_args["visitor_data"] = [settings.YOUTUBE_VISITOR_DATA.strip()]
+
     extractor_args: dict[str, dict[str, Any]] = {
-        "youtube": {
-            "player_client": ["android", "android_creator", "tv_embedded", "ios", "web"],
-        }
+        "youtube": youtube_args,
     }
 
     # Add PO Token Provider configuration if URL is configured
@@ -39,6 +51,9 @@ def build_base_ydl_opts(overrides: dict[str, Any] | None = None) -> dict[str, An
 
     if settings.resolved_cookiefile:
         opts["cookiefile"] = settings.resolved_cookiefile
+
+    if settings.resolved_proxy:
+        opts["proxy"] = settings.resolved_proxy
 
     if overrides:
         # Deep merge/update overrides
@@ -63,11 +78,13 @@ def get_youtube_fallback_clients() -> list[list[str]]:
     to attempt if extraction fails.
     """
     return [
-        ["android"],
-        ["android_creator"],
+        ["visionos"],
+        ["ios"],
         ["tv_embedded"],
-        ["ios", "android"],
+        ["android_creator"],
         ["mweb"],
-        ["tv"],
+        ["web_creator"],
+        ["tv_downgraded"],
+        ["android"],
         ["web"],
     ]

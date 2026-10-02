@@ -49,8 +49,16 @@ class Settings(BaseSettings):
 
     # YouTube PO Token Provider & Authentication
     PO_TOKEN_PROVIDER_URL: str | None = None
+    YOUTUBE_PO_TOKEN: str | None = None
+    YOUTUBE_VISITOR_DATA: str | None = None
     YOUTUBE_COOKIES: str | None = None
     COOKIES_FILE: str | None = None
+    YOUTUBE_CLIENTS: str | None = None
+
+    # Proxy Configuration (Residential / Datacenter Bypass)
+    YOUTUBE_PROXY: str | None = None
+    HTTP_PROXY: str | None = None
+    HTTPS_PROXY: str | None = None
 
     # Admin Portal
     ADMIN_SECRET_KEY: str = "change-this-to-a-secure-random-token-in-production"
@@ -72,10 +80,29 @@ class Settings(BaseSettings):
         return None
 
     @property
+    def resolved_proxy(self) -> str | None:
+        if self.YOUTUBE_PROXY and self.YOUTUBE_PROXY.strip():
+            return self.YOUTUBE_PROXY.strip()
+        if self.HTTPS_PROXY and self.HTTPS_PROXY.strip():
+            return self.HTTPS_PROXY.strip()
+        if self.HTTP_PROXY and self.HTTP_PROXY.strip():
+            return self.HTTP_PROXY.strip()
+        return None
+
+    @property
+    def resolved_youtube_clients(self) -> list[str]:
+        if self.YOUTUBE_CLIENTS:
+            clients = [c.strip() for c in self.YOUTUBE_CLIENTS.split(",") if c.strip()]
+            if clients:
+                return clients
+        # Primary default clients optimized for cloud & local compatibility
+        return ["visionos", "web", "mweb", "ios", "tv_embedded"]
+
+    @property
     def resolved_cookiefile(self) -> str | None:
         if self.COOKIES_FILE and Path(self.COOKIES_FILE).exists():
             return str(Path(self.COOKIES_FILE).resolve())
-        if self.YOUTUBE_COOKIES:
+        if self.YOUTUBE_COOKIES and self.YOUTUBE_COOKIES.strip():
             cookie_path = self.storage_path / "cookies.txt"
             cookie_path.write_text(self.YOUTUBE_COOKIES.strip(), encoding="utf-8")
             return str(cookie_path)

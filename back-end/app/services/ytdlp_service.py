@@ -98,8 +98,27 @@ class YtDlpService:
                 ) from exc
 
             if "bot" in err_msg or "confirm you’re not a bot" in err_msg or "confirm you're not a bot" in err_msg:
+                has_pot = bool(settings.resolved_po_token_provider_url or settings.YOUTUBE_PO_TOKEN)
+                has_cookies = bool(settings.resolved_cookiefile)
+
+                if has_cookies:
+                    guidance = (
+                        "YouTube challenged this request with bot verification. "
+                        "The authentication cookies may have expired or need renewal."
+                    )
+                elif has_pot:
+                    guidance = (
+                        "YouTube challenged this request with bot verification. "
+                        "The PO Token Provider may need a refresh or the host IP is restricted."
+                    )
+                else:
+                    guidance = (
+                        "YouTube temporarily challenged this request with bot verification on this server. "
+                        "To resolve on cloud hosts, configure YOUTUBE_COOKIES, PO_TOKEN_PROVIDER_URL, or a residential PROXY."
+                    )
+
                 raise YouTubeBotCheckError(
-                    "YouTube temporarily challenged this request with bot verification. Dynamic token provider active.",
+                    guidance,
                     details=str(exc),
                 ) from exc
 
@@ -148,9 +167,12 @@ class YtDlpService:
                 fallbacks = get_youtube_fallback_clients()
                 for client_chain in fallbacks:
                     fb_opts = copy.deepcopy(options)
-                    if "extractor_args" not in fb_opts:
+                    if "extractor_args" not in fb_opts or not isinstance(fb_opts["extractor_args"], dict):
                         fb_opts["extractor_args"] = {}
-                    fb_opts["extractor_args"]["youtube"] = {"player_client": client_chain}
+                    if "youtube" not in fb_opts["extractor_args"] or not isinstance(fb_opts["extractor_args"]["youtube"], dict):
+                        fb_opts["extractor_args"]["youtube"] = {}
+
+                    fb_opts["extractor_args"]["youtube"]["player_client"] = client_chain
 
                     # Preserve PO Token Provider in fallbacks if configured
                     if settings.resolved_po_token_provider_url:

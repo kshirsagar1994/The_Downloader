@@ -39,10 +39,12 @@ def test_ytdlp_options_builder():
     assert "extractor_args" in opts
     assert "youtube" in opts["extractor_args"]
     assert "player_client" in opts["extractor_args"]["youtube"]
-    assert "android" in opts["extractor_args"]["youtube"]["player_client"]
+    assert "visionos" in opts["extractor_args"]["youtube"]["player_client"]
 
 
 def test_youtube_fallback_clients():
     fallbacks = get_youtube_fallback_clients()
     assert len(fallbacks) >= 5
-    assert ["android"] in fallbacks
+    assert ["visionos"] in fallbacks
+    assert ["ios"] in fallbacks
+    assert ["tv_embedded"] in fallbacks
