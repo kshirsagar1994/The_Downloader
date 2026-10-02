@@ -10,7 +10,7 @@ interface LoadingStateProps {
 
 export function LoadingState({
   message = "Inspecting media streams & formats...",
-  subMessage = "Querying yt-dlp metadata engine and validating stream sources safely",
+  subMessage = "Analyzing media metadata and validating stream sources safely",
 }: LoadingStateProps) {
   return (
     <div className="w-full max-w-2xl mx-auto rounded-2xl border border-border/80 bg-card/60 backdrop-blur-xl p-8 text-center space-y-6 shadow-2xl">

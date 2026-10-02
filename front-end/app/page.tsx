@@ -146,7 +146,7 @@ function DownloaderApp() {
         <section className="text-center space-y-5 max-w-4xl mx-auto">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-semibold backdrop-blur-md">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>High-Speed yt-dlp & FFmpeg Engine</span>
+            <span>High-Speed Universal Media Engine</span>
           </div>
 
           <h1 className="text-4xl sm:text-6xl font-black tracking-tight text-foreground leading-[1.1]">
@@ -207,7 +207,7 @@ function DownloaderApp() {
             </div>
             <h3 className="font-bold text-sm text-foreground">4K & Adaptive Video</h3>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Streams video and audio tracks separately and merges them seamlessly with FFmpeg for maximum fidelity.
+              Streams video and audio tracks separately and merges them seamlessly for maximum fidelity.
             </p>
           </div>
 
@@ -254,7 +254,7 @@ function DownloaderApp() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
               { step: "01", title: "Paste URL", desc: "Input any supported video, audio, image gallery, or playlist URL." },
-              { step: "02", title: "Extract Streams", desc: "Engine verifies SSRF safety and extracts live stream manifests via yt-dlp." },
+              { step: "02", title: "Extract Streams", desc: "Engine verifies safety and extracts available media stream manifests." },
               { step: "03", title: "Choose Format", desc: "Pick your preferred resolution, audio bitrate, or select gallery images." },
               { step: "04", title: "Stream Download", desc: "Download directly to your device via standard HTTP headers with no path leaks." },
             ].map((s) => (

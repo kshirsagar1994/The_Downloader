@@ -189,7 +189,7 @@ export default function AdminDashboardPage() {
 
                 <div className="p-5 rounded-2xl border border-border/80 bg-card/60 backdrop-blur-md space-y-2">
                   <div className="flex items-center justify-between text-muted-foreground text-xs">
-                    <span>yt-dlp Core</span>
+                    <span>Extractor Core</span>
                     <Cpu className="w-4 h-4 text-blue-400" />
                   </div>
                   <div className="text-xl font-black font-mono text-primary truncate">
@@ -253,7 +253,7 @@ export default function AdminDashboardPage() {
                   <h3 className="text-sm font-bold text-foreground">Binaries & Subprocesses</h3>
                   <div className="space-y-3 text-xs">
                     <div className="flex items-center justify-between p-3 rounded-xl bg-background/50 border border-border/60">
-                      <span className="text-muted-foreground">FFmpeg Binary:</span>
+                      <span className="text-muted-foreground">Media Processor:</span>
                       <span className="font-mono font-semibold text-foreground">
                         {metrics.ffmpeg_path}
                       </span>

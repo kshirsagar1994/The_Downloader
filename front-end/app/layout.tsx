@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Universal Media Downloader — Fast, High-Quality Video, Audio & Image Downloader",
-  description: "Download videos, audios, playlists, and image galleries easily with real-time progress and FFmpeg precision.",
+  description: "Download videos, audios, playlists, and image galleries easily with real-time progress and high-speed precision.",
 };
 
 export default function RootLayout({

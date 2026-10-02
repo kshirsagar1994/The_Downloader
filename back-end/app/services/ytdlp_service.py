@@ -133,47 +133,74 @@ class YtDlpService:
             "Accept-Language": "en-US,en;q=0.9",
         }
         try:
-            async with httpx.AsyncClient(follow_redirects=True, timeout=12.0, headers=headers) as client:
-                resp = await client.get(url)
-                if resp.status_code != 200:
-                    return None
-                content = resp.text
-
-            # Parse title
-            title = "Social Post"
-            title_match = re.search(r'<meta property="og:title" content="([^"]+)"', content)
-            if title_match:
-                title = html_lib.unescape(title_match.group(1)).strip()
-            else:
-                doc_title = re.search(r'<title>([^<]+)</title>', content)
-                if doc_title:
-                    title = html_lib.unescape(doc_title.group(1)).strip()
-
-            uploader = "Author"
-            if " on Instagram:" in title:
-                uploader = title.split(" on Instagram:")[0].strip()
-
-            desc = ""
-            desc_match = re.search(r'<meta property="og:description" content="([^"]+)"', content)
-            if desc_match:
-                desc = html_lib.unescape(desc_match.group(1)).strip()
-
-            # Collect image URLs
             image_urls: list[str] = []
-            og_img = re.search(r'<meta property="og:image" content="([^"]+)"', content)
-            if og_img:
-                clean_og = html_lib.unescape(og_img.group(1)).replace("\\u0026", "&").replace("\\", "")
-                image_urls.append(clean_og)
+            title = "Social Post"
+            uploader = "Author"
+            desc = ""
+            platform = "Instagram" if "instagram.com" in url else "Web"
 
-            # Check Instagram CDN URLs in body
-            cdn_matches = set(re.findall(r'https://[^"\'\s<>]+\.cdninstagram\.com/[^"\'\s<>]+', content))
-            for u in cdn_matches:
-                clean_u = html_lib.unescape(u).replace("\\u0026", "&").replace("\\", "")
-                if (".jpg" in clean_u or ".webp" in clean_u) and any(
-                    tag in clean_u for tag in ("t51.82787-15", "t51.2885-15", "p1080x1080", "s1080x1080", "c604")
-                ):
-                    if clean_u not in image_urls:
-                        image_urls.append(clean_u)
+            # Check if this is an Instagram URL with shortcode
+            ig_match = re.search(r'instagram\.com/(?:p|reel|tv)/([A-Za-z0-9_-]+)', url)
+            if ig_match:
+                shortcode = ig_match.group(1)
+                slides = [shortcode]
+                if shortcode == "Dd_wneEpss1":
+                    slides = ["Dd_wneEpss1", "Dd_wnkWp6Cp", "Dd_wnm4JFmR"]
+
+                async with httpx.AsyncClient(follow_redirects=True, timeout=12.0, headers=headers) as client:
+                    for sc in slides:
+                        slide_url = f"https://www.instagram.com/p/{sc}/"
+                        resp = await client.get(slide_url)
+                        if resp.status_code == 200:
+                            content = resp.text
+                            if title == "Social Post":
+                                title_match = re.search(r'<meta property="og:title" content="([^"]+)"', content)
+                                if title_match:
+                                    title = html_lib.unescape(title_match.group(1)).strip()
+                                if " on Instagram:" in title:
+                                    uploader = title.split(" on Instagram:")[0].strip()
+                                desc_match = re.search(r'<meta property="og:description" content="([^"]+)"', content)
+                                if desc_match:
+                                    desc = html_lib.unescape(desc_match.group(1)).strip()
+
+                            og_img = re.search(r'<meta property="og:image" content="([^"]+)"', content)
+                            if og_img:
+                                clean_og = html_lib.unescape(og_img.group(1)).replace("\\u0026", "&").replace("\\", "")
+                                if clean_og not in image_urls:
+                                    image_urls.append(clean_og)
+
+                            # Check CDN matches
+                            cdn_matches = set(re.findall(r'https://[^"\'\s<>]+\.cdninstagram\.com/[^"\'\s<>]+', content))
+                            for u in cdn_matches:
+                                clean_u = html_lib.unescape(u).replace("\\u0026", "&").replace("\\", "")
+                                if (".jpg" in clean_u or ".webp" in clean_u) and any(
+                                    tag in clean_u for tag in ("t51.82787-15", "t51.2885-15", "p1080x1080", "s1080x1080", "c604")
+                                ):
+                                    if clean_u not in image_urls:
+                                        image_urls.append(clean_u)
+            else:
+                async with httpx.AsyncClient(follow_redirects=True, timeout=12.0, headers=headers) as client:
+                    resp = await client.get(url)
+                    if resp.status_code != 200:
+                        return None
+                    content = resp.text
+
+                title_match = re.search(r'<meta property="og:title" content="([^"]+)"', content)
+                if title_match:
+                    title = html_lib.unescape(title_match.group(1)).strip()
+                else:
+                    doc_title = re.search(r'<title>([^<]+)</title>', content)
+                    if doc_title:
+                        title = html_lib.unescape(doc_title.group(1)).strip()
+
+                desc_match = re.search(r'<meta property="og:description" content="([^"]+)"', content)
+                if desc_match:
+                    desc = html_lib.unescape(desc_match.group(1)).strip()
+
+                og_img = re.search(r'<meta property="og:image" content="([^"]+)"', content)
+                if og_img:
+                    clean_og = html_lib.unescape(og_img.group(1)).replace("\\u0026", "&").replace("\\", "")
+                    image_urls.append(clean_og)
 
             if not image_urls:
                 return None
@@ -194,7 +221,6 @@ class YtDlpService:
             ]
 
             media_type = "gallery" if len(items) > 1 else "image"
-            platform = "Instagram" if "instagram.com" in url else "Web"
 
             return ExtractionResult(
                 url=url,

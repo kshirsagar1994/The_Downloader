@@ -11,11 +11,11 @@ export const metadata: Metadata = {
 const FAQS = [
   {
     q: "How does the Universal Media Downloader work?",
-    a: "When you paste a link, our backend analyzes the streaming manifest using the latest yt-dlp extraction engine. It identifies available video tracks, audio channels, and image galleries. When you request a download, our background worker downloads the optimal streams, merges them with FFmpeg if required, and serves the clean media file to your browser.",
+    a: "When you paste a link, our backend analyzes the streaming manifest using our high-speed extraction engine. It identifies available video tracks, audio channels, and image galleries. When you request a download, our background worker downloads the optimal streams, merges them losslessly if required, and serves the clean media file to your browser.",
   },
   {
     q: "Why do some 1080p and 4K videos require merging?",
-    a: "Modern streaming platforms store high-definition video (1080p, 1440p, 4K) and audio in separate adaptive DASH/HLS streams. Our engine downloads both streams simultaneously and merges them losslessly using FFmpeg into a single high-definition MP4 container.",
+    a: "Modern streaming platforms store high-definition video (1080p, 1440p, 4K) and audio in separate adaptive DASH/HLS streams. Our engine downloads both streams simultaneously and merges them losslessly into a single high-definition MP4 container.",
   },
   {
     q: "How does the Image Downloader and ZIP archiving work?",

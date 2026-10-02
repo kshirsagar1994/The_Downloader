@@ -15,7 +15,7 @@ export function Footer() {
               <span className="font-bold text-base tracking-tight">The Downloader</span>
             </div>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Real high-performance universal media extraction engine powered by yt-dlp, FFmpeg, and Next.js.
+              Real high-performance universal media downloader and converter.
             </p>
           </div>
 
@@ -56,23 +56,23 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Col 4: Engine Info */}
+          {/* Col 4: Service Highlights */}
           <div className="space-y-3">
             <h4 className="text-xs font-semibold uppercase tracking-wider text-foreground">
-              Engine & Infrastructure
+              Service Highlights
             </h4>
             <div className="p-3 rounded-xl bg-background/60 border border-border/80 text-xs space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Core Extractor:</span>
-                <span className="font-mono text-primary font-medium">yt-dlp 2026.x</span>
+                <span className="text-muted-foreground">Performance:</span>
+                <span className="text-primary font-medium">Ultra Fast</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Transcoder:</span>
-                <span className="font-mono text-foreground font-medium">FFmpeg N-120063</span>
+                <span className="text-muted-foreground">Media Quality:</span>
+                <span className="text-foreground font-medium">Lossless HD</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Ephemeral Storage:</span>
-                <span className="text-emerald-400 font-medium">Auto-Clean 60m</span>
+                <span className="text-muted-foreground">Privacy Protection:</span>
+                <span className="text-emerald-400 font-medium">Zero Storage Logs</span>
               </div>
             </div>
           </div>

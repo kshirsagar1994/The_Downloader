@@ -29,7 +29,7 @@ export function DownloadProgress({ job, onCancel, onReset }: DownloadProgressPro
       case "DOWNLOADING":
         return { label: "Downloading...", color: "bg-primary/10 text-primary border-primary/20" };
       case "PROCESSING":
-        return { label: "Processing with FFmpeg...", color: "bg-indigo-500/10 text-indigo-400 border-indigo-500/20" };
+        return { label: "Processing Media...", color: "bg-indigo-500/10 text-indigo-400 border-indigo-500/20" };
       case "PACKAGING":
         return { label: "Packaging ZIP Archive...", color: "bg-purple-500/10 text-purple-400 border-purple-500/20" };
       case "COMPLETED":
@@ -48,7 +48,10 @@ export function DownloadProgress({ job, onCancel, onReset }: DownloadProgressPro
   // Trigger browser download by visiting or opening the endpoint
   const handleSaveToBrowser = () => {
     if (job.download_url) {
-      window.location.href = job.download_url;
+      const targetUrl = job.download_url.startsWith("http")
+        ? job.download_url
+        : `${API_BASE_URL}${job.download_url.startsWith("/") ? "" : "/"}${job.download_url}`;
+      window.location.href = targetUrl;
     } else {
       window.location.href = `${API_BASE_URL}/api/download/${job.job_id}`;
     }
