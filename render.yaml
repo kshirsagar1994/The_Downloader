@@ -9,6 +9,7 @@ services:
     name: the-downloader-api
     runtime: docker
     dockerfilePath: infrastructure/docker/Dockerfile.api
+    dockerContext: .
     plan: starter
     region: oregon
     numInstances: 1
