@@ -115,3 +115,102 @@ class JobNotFoundError(DownloaderException):
             code="JOB_NOT_FOUND",
             status_code=status.HTTP_404_NOT_FOUND,
         )
+
+
+class YouTubeBotCheckError(DownloaderException):
+    def __init__(
+        self,
+        message: str = "YouTube temporarily challenged this request. BotGuard PO Token verification is active.",
+        details: Any | None = None,
+    ):
+        super().__init__(
+            message=message,
+            code="YOUTUBE_BOT_CHECK",
+            status_code=status.HTTP_403_FORBIDDEN,
+            details=details,
+        )
+
+
+class POTokenError(DownloaderException):
+    def __init__(
+        self,
+        message: str = "PO Token provider was unable to generate a valid token for this media request.",
+        details: Any | None = None,
+    ):
+        super().__init__(
+            message=message,
+            code="PO_TOKEN_ERROR",
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            details=details,
+        )
+
+
+class VideoUnavailableError(DownloaderException):
+    def __init__(
+        self,
+        message: str = "The requested video is unavailable or has been removed by the creator.",
+        details: Any | None = None,
+    ):
+        super().__init__(
+            message=message,
+            code="VIDEO_UNAVAILABLE",
+            status_code=status.HTTP_404_NOT_FOUND,
+            details=details,
+        )
+
+
+class LoginRequiredError(DownloaderException):
+    def __init__(
+        self,
+        message: str = "This media requires a signed-in account or membership to access.",
+        details: Any | None = None,
+    ):
+        super().__init__(
+            message=message,
+            code="LOGIN_REQUIRED",
+            status_code=status.HTTP_403_FORBIDDEN,
+            details=details,
+        )
+
+
+class AgeRestrictedError(DownloaderException):
+    def __init__(
+        self,
+        message: str = "This content is age-restricted and requires account authentication.",
+        details: Any | None = None,
+    ):
+        super().__init__(
+            message=message,
+            code="AGE_RESTRICTED",
+            status_code=status.HTTP_403_FORBIDDEN,
+            details=details,
+        )
+
+
+class NetworkError(DownloaderException):
+    def __init__(
+        self,
+        message: str = "A temporary network error occurred while connecting to the media source.",
+        details: Any | None = None,
+    ):
+        super().__init__(
+            message=message,
+            code="NETWORK_ERROR",
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            details=details,
+        )
+
+
+class FFmpegError(DownloaderException):
+    def __init__(
+        self,
+        message: str = "Media transcoding or stream merging failed.",
+        details: Any | None = None,
+    ):
+        super().__init__(
+            message=message,
+            code="FFMPEG_ERROR",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            details=details,
+        )
+

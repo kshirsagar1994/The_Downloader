@@ -89,7 +89,9 @@ class AudioService:
             )
             progress_callback(event)
 
-        ydl_opts: dict[str, Any] = {
+        from app.services.ytdlp_options import build_base_ydl_opts
+
+        ydl_opts = build_base_ydl_opts({
             "format": "bestaudio/best",
             "outtmpl": out_template,
             "ffmpeg_location": ffmpeg_bin,
@@ -102,19 +104,8 @@ class AudioService:
             ],
             "progress_hooks": [_progress_hook],
             "postprocessor_hooks": [_postprocessor_hook],
-            "quiet": True,
-            "no_warnings": True,
-            "ignoreerrors": False,
             "socket_timeout": 30,
-            "extractor_args": {
-                "youtube": {
-                    "player_client": ["android", "android_creator", "tv_embedded", "ios"],
-                }
-            },
-        }
-
-        if settings.resolved_cookiefile:
-            ydl_opts["cookiefile"] = settings.resolved_cookiefile
+        })
 
         logger.info(
             f"Starting audio extraction for {validated_url} ({clean_ext} @ {clean_bitrate}k) in {job_dir.name}"

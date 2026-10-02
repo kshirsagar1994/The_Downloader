@@ -3,7 +3,7 @@
 
 services:
   # ---------------------------------------------------------------------------
-  # 1. Backend API & Media Processing Engine (FastAPI + yt-dlp + FFmpeg)
+  # 1. Backend API & Media Processing Engine (FastAPI + yt-dlp + FFmpeg + POT)
   # ---------------------------------------------------------------------------
   - type: web
     name: the-downloader-api
@@ -27,6 +27,10 @@ services:
         value: "500"
       - key: ALLOWED_ORIGINS
         value: https://www.downloader.biz,https://downloader.biz
+      - key: PO_TOKEN_PROVIDER_URL
+        value: "" # Optional: URL to BgUtils PO Token Provider (e.g. http://the-downloader-pot-provider:4416)
+      - key: YOUTUBE_COOKIES
+        value: "" # Optional fallback authentication cookies (Netscape format)
 
   # ---------------------------------------------------------------------------
   # 2. Frontend Web Application (Next.js 15 App Router)

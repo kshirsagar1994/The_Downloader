@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import datetime
 import html as html_lib
 import re
@@ -9,48 +10,52 @@ import yt_dlp
 
 from app.config import get_settings
 from app.core.errors import (
+    AgeRestrictedError,
     ExtractionFailedError,
+    FormatUnavailableError,
+    LoginRequiredError,
+    NetworkError,
     OperationTimeoutError,
+    POTokenError,
     PrivateContentError,
+    RateLimitExceededError,
     UnsupportedUrlError,
+    VideoUnavailableError,
+    YouTubeBotCheckError,
 )
 from app.core.logging import logger
 from app.schemas.media import ExtractionResult, MediaImageItem
 from app.security.ssrf import validate_url_ssrf
 from app.services.metadata_service import MetadataService
+from app.services.ytdlp_options import build_base_ydl_opts, get_youtube_fallback_clients
 
 settings = get_settings()
 
 
 class YtDlpService:
-    """Encapsulated extraction and download service wrapping the yt-dlp engine."""
+    """Encapsulated extraction and download service wrapping the yt-dlp engine with PO Token Provider support."""
 
     @classmethod
     async def extract_info(cls, url: str) -> ExtractionResult:
         # Step 1: Pre-flight SSRF Validation
         validated_url = validate_url_ssrf(url)
 
-        ydl_opts: dict[str, Any] = {
+        ydl_opts = build_base_ydl_opts({
             "extract_flat": False,
             "skip_download": True,
-            "quiet": True,
-            "no_warnings": True,
-            "ignoreerrors": False,
-            "socket_timeout": 15,
-            "geo_bypass": True,
             "playlist_items": f"1-{settings.MAX_PLAYLIST_ITEMS}",
-            "extractor_args": {
-                "youtube": {
-                    "player_client": ["android", "android_creator", "tv_embedded", "ios"],
-                }
-            },
-        }
+        })
 
-        if settings.resolved_cookiefile:
-            ydl_opts["cookiefile"] = settings.resolved_cookiefile
+        is_youtube = "youtube.com" in validated_url.lower() or "youtu.be" in validated_url.lower()
 
         try:
-            logger.info(f"Extracting metadata for URL: {validated_url}")
+            if is_youtube:
+                logger.info(f"[YT] Starting extraction for URL: {validated_url}")
+                if settings.resolved_po_token_provider_url:
+                    logger.info("[YT] PO Token provider configured")
+            else:
+                logger.info(f"Extracting metadata for URL: {validated_url}")
+
             # Run blocking extraction in worker thread with timeout
             raw_info = await asyncio.wait_for(
                 asyncio.to_thread(cls._run_extraction, validated_url, ydl_opts),
@@ -59,6 +64,9 @@ class YtDlpService:
 
             if not raw_info or not isinstance(raw_info, dict):
                 raise ExtractionFailedError("No metadata returned by extractor.")
+
+            if is_youtube:
+                logger.info(f"[YT] Extraction successful: {raw_info.get('title', 'Untitled')[:40]}")
 
             return MetadataService.parse_extraction_result(validated_url, raw_info)
 
@@ -79,20 +87,48 @@ class YtDlpService:
                 except Exception as img_exc:
                     logger.warning(f"Social image extraction fallback failed: {img_exc}")
 
+            # Granular error classification
             if "unsupported url" in err_msg or "no suitable extractor" in err_msg:
                 raise UnsupportedUrlError("That URL is not currently supported.", details=str(exc)) from exc
+
+            if "po_token" in err_msg or "pot" in err_msg or "botguard" in err_msg:
+                raise POTokenError(
+                    "YouTube requested a Proof-of-Origin token that could not be generated. Please retry shortly.",
+                    details=str(exc),
+                ) from exc
+
             if "bot" in err_msg or "confirm you’re not a bot" in err_msg or "confirm you're not a bot" in err_msg:
-                raise PrivateContentError(
-                    "YouTube requires bot verification on this server. Please configure YOUTUBE_COOKIES or try another media link.",
+                raise YouTubeBotCheckError(
+                    "YouTube temporarily challenged this request with bot verification. Dynamic token provider active.",
                     details=str(exc),
                 ) from exc
-            if "private" in err_msg or "sign in" in err_msg or "login" in err_msg or "members only" in err_msg:
-                raise PrivateContentError(
-                    "This media requires authentication or is private and cannot be accessed.",
+
+            if "sign in" in err_msg or "login" in err_msg or "members only" in err_msg or "premium" in err_msg:
+                raise LoginRequiredError(
+                    "This media requires a signed-in account or membership to access.",
                     details=str(exc),
                 ) from exc
-            if "not found" in err_msg or "404" in err_msg or "unavailable" in err_msg:
-                raise ExtractionFailedError("The requested media was not found or is unavailable.", details=str(exc)) from exc
+
+            if "age" in err_msg or "confirm your age" in err_msg:
+                raise AgeRestrictedError(
+                    "This content is age-restricted and requires account verification.",
+                    details=str(exc),
+                ) from exc
+
+            if "private" in err_msg:
+                raise PrivateContentError(
+                    "This media is private and cannot be accessed.",
+                    details=str(exc),
+                ) from exc
+
+            if "not found" in err_msg or "404" in err_msg or "unavailable" in err_msg or "does not exist" in err_msg or "video has been removed" in err_msg:
+                raise VideoUnavailableError("The requested media was not found or is unavailable.", details=str(exc)) from exc
+
+            if "format is not available" in err_msg:
+                raise FormatUnavailableError("The requested video stream or format is not available.") from exc
+
+            if "network" in err_msg or "connection refused" in err_msg or "timed out" in err_msg:
+                raise NetworkError("A temporary network error occurred while connecting to the source.", details=str(exc)) from exc
 
             raise ExtractionFailedError(f"Extraction failed: {exc}", details=str(exc)) from exc
 
@@ -102,25 +138,26 @@ class YtDlpService:
 
     @classmethod
     def _run_extraction(cls, url: str, options: dict[str, Any]) -> dict[str, Any]:
-        """Synchronous yt-dlp execution helper with client fallback."""
+        """Synchronous yt-dlp execution helper with client fallback and transient retries."""
         # Primary attempt
         try:
             with yt_dlp.YoutubeDL(options) as ydl:
                 return ydl.extract_info(url, download=False)
         except yt_dlp.utils.DownloadError as primary_err:
             if "youtube" in url.lower() or "youtu.be" in url.lower():
-                fallbacks = [
-                    ["android"],
-                    ["android_creator"],
-                    ["tv_embedded"],
-                    ["ios", "android"],
-                    ["mweb"],
-                    ["tv"],
-                    ["web"],
-                ]
+                fallbacks = get_youtube_fallback_clients()
                 for client_chain in fallbacks:
-                    fb_opts = dict(options)
-                    fb_opts["extractor_args"] = {"youtube": {"player_client": client_chain}}
+                    fb_opts = copy.deepcopy(options)
+                    if "extractor_args" not in fb_opts:
+                        fb_opts["extractor_args"] = {}
+                    fb_opts["extractor_args"]["youtube"] = {"player_client": client_chain}
+
+                    # Preserve PO Token Provider in fallbacks if configured
+                    if settings.resolved_po_token_provider_url:
+                        fb_opts["extractor_args"]["youtubepot-bgutilhttp"] = {
+                            "base_url": settings.resolved_po_token_provider_url,
+                        }
+
                     try:
                         with yt_dlp.YoutubeDL(fb_opts) as ydl_fb:
                             res = ydl_fb.extract_info(url, download=False)

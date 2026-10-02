@@ -88,26 +88,18 @@ class PlaylistService:
             )
             progress_callback(event)
 
-        ydl_opts: dict[str, Any] = {
+        from app.services.ytdlp_options import build_base_ydl_opts
+
+        ydl_opts = build_base_ydl_opts({
             "format": selected_format,
             "outtmpl": out_template,
             "merge_output_format": "mp4",
             "ffmpeg_location": ffmpeg_bin,
             "playlist_items": playlist_items_spec,
             "progress_hooks": [_progress_hook],
-            "quiet": True,
-            "no_warnings": True,
             "max_filesize": settings.MAX_FILE_SIZE_MB * 1024 * 1024,
             "socket_timeout": 30,
-            "extractor_args": {
-                "youtube": {
-                    "player_client": ["android", "android_creator", "tv_embedded", "ios"],
-                }
-            },
-        }
-
-        if settings.resolved_cookiefile:
-            ydl_opts["cookiefile"] = settings.resolved_cookiefile
+        })
 
         logger.info(
             f"Starting playlist download for {validated_url} (items: {playlist_items_spec}) in {job_dir.name}"

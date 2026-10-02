@@ -14,6 +14,9 @@
 *.pfx
 secrets/
 credentials.json
+cookies.txt
+*.cookies
+.cookies
 
 # =========================================================================
 # Python & Virtual Environments

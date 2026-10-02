@@ -47,7 +47,8 @@ class Settings(BaseSettings):
     MAX_JOB_DURATION_SECONDS: int = 900
     MAX_EXTRACTION_TIMEOUT_SECONDS: int = 20
 
-    # YouTube & Authentication
+    # YouTube PO Token Provider & Authentication
+    PO_TOKEN_PROVIDER_URL: str | None = None
     YOUTUBE_COOKIES: str | None = None
     COOKIES_FILE: str | None = None
 
@@ -63,6 +64,12 @@ class Settings(BaseSettings):
         p = Path(self.DOWNLOAD_DIR).resolve()
         p.mkdir(parents=True, exist_ok=True)
         return p
+
+    @property
+    def resolved_po_token_provider_url(self) -> str | None:
+        if self.PO_TOKEN_PROVIDER_URL:
+            return self.PO_TOKEN_PROVIDER_URL.rstrip("/")
+        return None
 
     @property
     def resolved_cookiefile(self) -> str | None:
