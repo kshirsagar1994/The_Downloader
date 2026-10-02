@@ -43,7 +43,7 @@ Internet / User Browser
                ▼                               ▼
 ┌─────────────────────────────┐ ┌─────────────────────────────┐
 │    Next.js 15 Web App       │ │     FastAPI API Server      │
-│     (apps/web :3000)        │ │      (apps/api :8000)       │
+│     (front-end :3000)       │ │      (back-end :8000)       │
 └─────────────────────────────┘ └──────────────┬──────────────┘
                                                │
                                  ┌─────────────┴─────────────┐
@@ -59,7 +59,7 @@ Internet / User Browser
                                                │
                                                ▼
                                 ┌─────────────────────────────┐
-                                │   Job Worker (apps/worker)  │
+                                │  Job Worker (back-end/worker)│
                                 │   ├── yt-dlp Core Engine    │
                                 │   ├── FFmpeg / FFprobe      │
                                 │   └── Ephemeral Workspaces  │
@@ -78,28 +78,27 @@ Internet / User Browser
 
 ```
 media-downloader/
-├── apps/
-│   ├── web/                          # Next.js 15 App Router Frontend
-│   │   ├── app/                      # Pages: /, /admin, /faq, /privacy, /terms
-│   │   ├── components/               # UI & Media Components
-│   │   ├── hooks/                    # useMediaDownload custom hook
-│   │   ├── lib/                      # API client & utilities
-│   │   └── types/                    # Shared TypeScript interfaces
-│   │
-│   ├── api/                          # FastAPI Backend Application
-│   │   ├── app/
-│   │   │   ├── api/                  # Routers: /extract, /jobs, /download, /admin, /health
-│   │   │   ├── core/                 # Config, Logging, Errors, Rate Limiting
-│   │   │   ├── schemas/              # Pydantic validation models
-│   │   │   ├── security/             # SSRF, Sanitization, Auth
-│   │   │   ├── services/             # yt-dlp, FFmpeg, Video, Audio, Image, Playlist
-│   │   │   ├── storage/              # Ephemeral workspace manager & Sweeper
-│   │   │   └── workers/              # Job execution worker logic
-│   │   └── tests/                    # Pytest test suites (98 unit/integration/security/e2e tests)
-│   │
-│   └── worker/                       # Standalone daemon runners
-│       ├── run_worker.py             # Background Redis queue worker daemon
-│       └── run_sweeper.py            # Automated storage eviction cron
+├── front-end/                        # Next.js 15 App Router Frontend
+│   ├── app/                          # Pages: /, /admin, /faq, /privacy, /terms
+│   ├── components/                   # UI & Media Components
+│   ├── lib/                          # API client & utilities
+│   └── types/                        # Shared TypeScript interfaces
+│
+├── back-end/                         # FastAPI Backend Application & Workers
+│   ├── app/
+│   │   ├── api/                      # Routers: /extract, /jobs, /download, /admin, /health
+│   │   ├── core/                     # Config, Logging, Errors, Rate Limiting
+│   │   ├── schemas/                  # Pydantic validation models
+│   │   ├── security/                 # SSRF, Sanitization, Auth
+│   │   ├── services/                 # yt-dlp, FFmpeg, Video, Audio, Image, Playlist
+│   │   ├── storage/                  # Ephemeral workspace manager & Sweeper
+│   │   └── workers/                  # Job execution worker logic
+│   ├── tests/                        # Pytest test suites (98 unit/integration/security/e2e tests)
+│   ├── worker/                       # Standalone daemon runners
+│   │   ├── run_worker.py             # Background Redis queue worker daemon
+│   │   └── run_sweeper.py            # Automated storage eviction cron
+│   ├── pyproject.toml                # Python package & tool configuration
+│   └── requirements.txt              # Python production dependencies
 │
 ├── infrastructure/
 │   ├── docker/                       # Dockerfiles for API, Web, Worker
@@ -130,7 +129,7 @@ cp .env.example .env
 
 ### 2. Backend Installation & Run
 ```bash
-cd apps/api
+cd back-end
 python -m venv .venv
 
 # Windows:
@@ -144,7 +143,7 @@ uvicorn app.main:app --reload --port 8000
 
 ### 3. Frontend Installation & Run
 ```bash
-cd apps/web
+cd front-end
 npm install
 npm run dev
 ```
@@ -153,8 +152,8 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ### 4. Background Worker & Storage Sweeper (Optional / Production)
 ```bash
 # In separate terminal windows with backend venv activated:
-python apps/worker/run_worker.py
-python apps/worker/run_sweeper.py
+python back-end/worker/run_worker.py
+python back-end/worker/run_sweeper.py
 ```
 
 ---
@@ -179,18 +178,18 @@ curl http://localhost/api/health
 
 ### Run All Backend Tests
 ```bash
-pytest apps/api/tests -v
+pytest back-end/tests -v
 ```
 *Executes all 98 test cases covering unit services, format selectors, transcode handlers, SSRF attack vectors, command injection boundaries, and full end-to-end pipelines.*
 
 ### Run Python Linter & Formatter
 ```bash
-ruff check apps/
+ruff check back-end/
 ```
 
 ### Run Frontend Production Build & Type Check
 ```bash
-npm --prefix apps/web run build
+npm --prefix front-end run build
 ```
 
 ---

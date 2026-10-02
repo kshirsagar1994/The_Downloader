@@ -75,7 +75,7 @@ flowchart TD
 
 ## 3. Component Architecture & Responsibilities
 
-### 3.1 Frontend (`apps/web`)
+### 3.1 Frontend (`front-end`)
 * **Framework**: Next.js 15 (App Router), React 19, TypeScript (Strict).
 * **Styling & UI**: Tailwind CSS, Radix UI primitives (`shadcn/ui`), Framer Motion micro-animations, Lucide React icons.
 * **Responsibilities**:
@@ -85,7 +85,7 @@ flowchart TD
   * Direct-to-consumer SSE progress bar subscribing to `/api/jobs/{job_id}/events`.
   * Triggering standard native browser download dialog via `/api/download/{job_id}` without exposing backend filenames or server directory paths.
 
-### 3.2 Backend API (`apps/api`)
+### 3.2 Backend API (`back-end`)
 * **Framework**: FastAPI (Python 3.12+ / 3.14+), Pydantic v2 schemas, Starlette.
 * **Responsibilities**:
   * **SSRF Guard**: Pre-flight resolution of all user hostnames, denying private IP networks, loopbacks, link-local, cloud metadata IP (`169.254.169.254`), and IPv6 equivalents.
@@ -95,7 +95,7 @@ flowchart TD
   * **Secure Download Streamer**: `FileResponse` / `StreamingResponse` provider with strict RFC 5987 / RFC 6266 `Content-Disposition` header encoding, automatic MIME resolution, and cache-control disabling.
   * **Health & Diagnostics**: Real-time probing of Redis connectivity, `yt-dlp` executable/package version, `ffmpeg`/`ffprobe` binaries, and disk quota headroom.
 
-### 3.3 Worker & Media Processing Engine (`apps/worker`)
+### 3.3 Worker & Media Processing Engine (`back-end/worker`)
 * **Runner**: Python Async Worker backed by Redis queue & PubSub.
 * **Sub-Services**:
   * **`YtDlpService`**: Wraps `yt_dlp.YoutubeDL` with standard hook handlers (`progress_hooks`, `postprocessor_hooks`). Converts internal progress states into normalized percentage, downloaded bytes, throughput speed (B/s), ETA (seconds), and active sub-stages.

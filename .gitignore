@@ -33,8 +33,6 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
 parts/
 sdist/
 var/
@@ -54,12 +52,18 @@ htmlcov/
 # =========================================================================
 node_modules/
 .npm/
+front-end/.next/
+front-end/out/
+front-end/build/
+front-end/node_modules/
+front-end/next-env.d.ts
 apps/web/.next/
 apps/web/out/
 apps/web/build/
 .next/
 out/
 next-env.d.ts
+.kilo/
 
 # =========================================================================
 # Ephemeral Media Workspaces & Temporary Storage

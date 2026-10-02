@@ -10,13 +10,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Copy dependency specifications
-COPY apps/api/requirements.txt ./requirements.txt
+COPY back-end/requirements.txt ./requirements.txt
 
 # Install python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy backend codebase
-COPY apps/api /app
+COPY back-end /app
 
 # Create ephemeral download directory
 RUN mkdir -p /tmp/media-downloader && chmod 777 /tmp/media-downloader

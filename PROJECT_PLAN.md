@@ -11,7 +11,7 @@ This project plan enforces a strict sequential 17-Phase progression (Phase 0 thr
 | Phase | Phase Name | Objective & Deliverables | Acceptance / Exit Criteria |
 | :--- | :--- | :--- | :--- |
 | **0** | **Requirements & Architecture** | Architecture, Project Plan, Security specifications. | `ARCHITECTURE.md`, `PROJECT_PLAN.md`, `SECURITY.md` validated and finalized. |
-| **1** | **Repository & Project Setup** | Monorepo layout (`apps/web`, `apps/api`, `apps/worker`), config, dependencies, linter/typecheck pipelines, Redis/Docker configs. | Backend and Frontend environments build, lint cleanly, and test run successfully. |
+| **1** | **Repository & Project Setup** | Monorepo layout (`front-end`, `back-end`), config, dependencies, linter/typecheck pipelines, Redis/Docker configs. | Backend and Frontend environments build, lint cleanly, and test run successfully. |
 | **2** | **Frontend Foundation** | Dark-first premium SaaS layout (Hero, URL Input, Format Placeholders, Toast system, Framer Motion transitions, responsive design). | Web app renders cleanly on mobile/desktop, clipboard paste works, component state machine ready. |
 | **3** | **Backend / API Foundation** | FastAPI core setup, health endpoints (`/api/health`), structured logging, Pydantic models, CORS, Rate Limiting, SSRF guard. | Health checks pass, CORS / rate limiter active, test suite verifies validation logic. |
 | **4** | **yt-dlp Integration** | `YtDlpService` metadata extraction, format categorization (Video, Audio, Image), platform detection, error normalizer. | Real URL extraction returns structured schema with zero synthetic mocking. |
@@ -34,80 +34,75 @@ This project plan enforces a strict sequential 17-Phase progression (Phase 0 thr
 
 ```
 The_Downloader/
-├── apps/
-│   ├── web/                     # Next.js 15 App Router Frontend
-│   │   ├── app/
-│   │   │   ├── layout.tsx
-│   │   │   ├── page.tsx
-│   │   │   ├── globals.css
-│   │   │   ├── analyze/
-│   │   │   ├── download/[jobId]/
-│   │   │   ├── admin/
-│   │   │   ├── faq/
-│   │   │   ├── terms/
-│   │   │   └── privacy/
-│   │   ├── components/
-│   │   │   ├── ui/
-│   │   │   ├── Header.tsx
-│   │   │   ├── Footer.tsx
-│   │   │   ├── UrlInput.tsx
-│   │   │   ├── MediaPreview.tsx
-│   │   │   ├── FormatSelector.tsx
-│   │   │   ├── ImageGallery.tsx
-│   │   │   ├── PlaylistViewer.tsx
-│   │   │   ├── DownloadProgress.tsx
-│   │   │   └── ThemeToggle.tsx
-│   │   ├── hooks/
-│   │   │   ├── useJobProgress.ts
-│   │   │   └── useMediaExtractor.ts
-│   │   ├── lib/
-│   │   │   ├── api.ts
-│   │   │   └── utils.ts
-│   │   ├── types/
-│   │   │   └── media.ts
-│   │   ├── package.json
-│   │   ├── tsconfig.json
-│   │   └── tailwind.config.ts
-│   │
-│   ├── api/                     # FastAPI Backend Application
-│   │   ├── app/
-│   │   │   ├── main.py
-│   │   │   ├── config.py
-│   │   │   ├── api/
-│   │   │   │   ├── routes_extract.py
-│   │   │   │   ├── routes_jobs.py
-│   │   │   │   ├── routes_download.py
-│   │   │   │   ├── routes_health.py
-│   │   │   │   └── routes_admin.py
-│   │   │   ├── core/
-│   │   │   │   ├── logging.py
-│   │   │   │   ├── rate_limit.py
-│   │   │   │   └── errors.py
-│   │   │   ├── schemas/
-│   │   │   │   ├── media.py
-│   │   │   │   ├── job.py
-│   │   │   │   └── health.py
-│   │   │   ├── security/
-│   │   │   │   ├── ssrf.py
-│   │   │   │   ├── sanitization.py
-│   │   │   │   └── auth.py
-│   │   │   ├── services/
-│   │   │   │   ├── ytdlp_service.py
-│   │   │   │   ├── ffmpeg_service.py
-│   │   │   │   ├── image_service.py
-│   │   │   │   └── queue_service.py
-│   │   │   ├── storage/
-│   │   │   │   ├── workspace.py
-│   │   │   │   └── cleanup.py
-│   │   │   └── workers/
-│   │   │       ├── job_worker.py
-│   │   │       └── sweeper_worker.py
-│   │   ├── tests/
-│   │   └── pyproject.toml
-│   │
-│   └── worker/                  # Standalone Worker Runner
-│       ├── run_worker.py
-│       └── run_sweeper.py
+├── front-end/                   # Next.js 15 App Router Frontend
+│   ├── app/
+│   │   ├── layout.tsx
+│   │   ├── page.tsx
+│   │   ├── globals.css
+│   │   ├── analyze/
+│   │   ├── download/[jobId]/
+│   │   ├── admin/
+│   │   ├── faq/
+│   │   ├── terms/
+│   │   └── privacy/
+│   ├── components/
+│   │   ├── Header.tsx
+│   │   ├── Footer.tsx
+│   │   ├── UrlInput.tsx
+│   │   ├── MediaPreview.tsx
+│   │   ├── FormatSelector.tsx
+│   │   ├── ImageGallery.tsx
+│   │   ├── PlaylistViewer.tsx
+│   │   ├── DownloadProgress.tsx
+│   │   └── ThemeToggle.tsx
+│   ├── lib/
+│   │   ├── api.ts
+│   │   └── utils.ts
+│   ├── types/
+│   │   └── media.ts
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── tailwind.config.ts
+│
+├── back-end/                    # FastAPI Backend Application & Workers
+│   ├── app/
+│   │   ├── main.py
+│   │   ├── config.py
+│   │   ├── api/
+│   │   │   ├── routes_extract.py
+│   │   │   ├── routes_jobs.py
+│   │   │   ├── routes_download.py
+│   │   │   ├── routes_health.py
+│   │   │   └── routes_admin.py
+│   │   ├── core/
+│   │   │   ├── logging.py
+│   │   │   ├── rate_limit.py
+│   │   │   └── errors.py
+│   │   ├── schemas/
+│   │   │   ├── media.py
+│   │   │   ├── job.py
+│   │   │   └── health.py
+│   │   ├── security/
+│   │   │   ├── ssrf.py
+│   │   │   ├── sanitization.py
+│   │   │   └── auth.py
+│   │   ├── services/
+│   │   │   ├── ytdlp_service.py
+│   │   │   ├── ffmpeg_service.py
+│   │   │   ├── image_service.py
+│   │   │   └── queue_service.py
+│   │   ├── storage/
+│   │   │   ├── workspace.py
+│   │   │   └── cleanup.py
+│   │   └── workers/
+│   │       ├── job_worker.py
+│   │       └── sweeper_worker.py
+│   ├── tests/
+│   ├── worker/                  # Standalone Worker Runner
+│   │   ├── run_worker.py
+│   │   └── run_sweeper.py
+│   ├── pyproject.toml
+│   └── requirements.txt
 │
 ├── infrastructure/
 │   ├── docker/

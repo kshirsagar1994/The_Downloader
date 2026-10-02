@@ -4,15 +4,15 @@
   "private": true,
   "description": "Universal Media Downloader Monorepo",
   "workspaces": [
-    "apps/*"
+    "front-end"
   ],
   "scripts": {
-    "dev": "npm --prefix apps/web run dev",
+    "dev": "npm --prefix front-end run dev",
     "dev:clean": "npm run clean && npm run dev",
-    "dev:api": "cd apps/api && ..\\..\\.venv\\Scripts\\python.exe -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000",
-    "clean": "powershell -Command \"if (Test-Path apps/web/.next) { Remove-Item -Recurse -Force apps/web/.next }\"",
-    "build": "npm --prefix apps/web run build",
-    "start": "npm --prefix apps/web run start",
-    "lint:web": "npm --prefix apps/web run lint"
+    "dev:api": "cd back-end && ..\\.venv\\Scripts\\python.exe -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000",
+    "clean": "powershell -Command \"if (Test-Path front-end/.next) { Remove-Item -Recurse -Force front-end/.next }\"",
+    "build": "npm --prefix front-end run build",
+    "start": "npm --prefix front-end run start",
+    "lint:web": "npm --prefix front-end run lint"
   }
 }

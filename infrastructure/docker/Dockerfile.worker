@@ -10,20 +10,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Copy dependency specifications
-COPY apps/api/requirements.txt ./requirements.txt
+COPY back-end/requirements.txt ./requirements.txt
 
 # Install python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy codebase
-COPY apps/api /app/apps/api
-COPY apps/worker /app/apps/worker
+COPY back-end /app/back-end
 
 WORKDIR /app
 
-ENV PYTHONPATH=/app/apps/api
+ENV PYTHONPATH=/app/back-end
 
 # Create ephemeral download directory
 RUN mkdir -p /tmp/media-downloader && chmod 777 /tmp/media-downloader
 
-CMD ["python", "apps/worker/run_worker.py"]
+CMD ["python", "back-end/worker/run_worker.py"]

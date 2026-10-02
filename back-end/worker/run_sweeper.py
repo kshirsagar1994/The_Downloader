@@ -3,9 +3,9 @@ import asyncio
 import sys
 from pathlib import Path
 
-# Add api directory to sys.path
-api_root = (Path(__file__).resolve().parent.parent / "api").resolve()
-sys.path.insert(0, str(api_root))
+# Add backend directory to sys.path
+backend_root = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(backend_root))
 
 from app.core.logging import logger
 from app.workers.sweeper_worker import SweeperWorker

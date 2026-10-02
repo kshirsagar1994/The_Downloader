@@ -2,10 +2,10 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-COPY apps/web/package.json apps/web/package-lock.json* ./
+COPY front-end/package.json front-end/package-lock.json* ./
 RUN npm ci
 
-COPY apps/web ./
+COPY front-end ./
 RUN npm run build
 
 FROM node:20-alpine AS runner
