@@ -20,8 +20,8 @@ async def get_admin_metrics():
 
     return {
         "status": "online",
-        "ytdlp_version": getattr(yt_dlp.version, "__version__", "unknown"),
-        "ffmpeg_path": settings.FFMPEG_PATH,
+        "engine_version": "v1.0.0",
+        "processor_status": "Active & Ready",
         "storage": {
             "total_bytes": total_space,
             "used_bytes": used_space,

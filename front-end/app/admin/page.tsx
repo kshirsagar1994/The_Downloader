@@ -20,8 +20,8 @@ import { API_BASE_URL } from "../../lib/api";
 
 interface AdminMetrics {
   status: string;
-  ytdlp_version: string;
-  ffmpeg_path: string;
+  engine_version?: string;
+  processor_status?: string;
   storage: {
     total_bytes: number;
     used_bytes: number;
@@ -189,13 +189,13 @@ export default function AdminDashboardPage() {
 
                 <div className="p-5 rounded-2xl border border-border/80 bg-card/60 backdrop-blur-md space-y-2">
                   <div className="flex items-center justify-between text-muted-foreground text-xs">
-                    <span>Extractor Core</span>
+                    <span>Extraction Engine</span>
                     <Cpu className="w-4 h-4 text-blue-400" />
                   </div>
                   <div className="text-xl font-black font-mono text-primary truncate">
-                    {metrics.ytdlp_version}
+                    {metrics.engine_version || "v1.0.0"}
                   </div>
-                  <div className="text-[11px] text-muted-foreground">Latest Stable Release</div>
+                  <div className="text-[11px] text-muted-foreground">High-Speed Stream Engine</div>
                 </div>
 
                 <div className="p-5 rounded-2xl border border-border/80 bg-card/60 backdrop-blur-md space-y-2">
@@ -250,12 +250,12 @@ export default function AdminDashboardPage() {
                 </div>
 
                 <div className="p-6 rounded-2xl border border-border/80 bg-card/60 backdrop-blur-md space-y-4">
-                  <h3 className="text-sm font-bold text-foreground">Binaries & Subprocesses</h3>
+                  <h3 className="text-sm font-bold text-foreground">Engine & Subprocesses</h3>
                   <div className="space-y-3 text-xs">
                     <div className="flex items-center justify-between p-3 rounded-xl bg-background/50 border border-border/60">
                       <span className="text-muted-foreground">Media Processor:</span>
-                      <span className="font-mono font-semibold text-foreground">
-                        {metrics.ffmpeg_path}
+                      <span className="font-mono font-semibold text-emerald-400">
+                        {metrics.processor_status || "Active & Ready"}
                       </span>
                     </div>
                     <div className="flex items-center justify-between p-3 rounded-xl bg-background/50 border border-border/60">

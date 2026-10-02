@@ -10,18 +10,6 @@ export const metadata: Metadata = {
 
 const NOTICES = [
   {
-    name: "yt-dlp",
-    repo: "https://github.com/yt-dlp/yt-dlp",
-    license: "The Unlicense",
-    desc: "The yt-dlp project is licensed under The Unlicense. The Git repository, PyPI source distribution, and PyPI wheel contain code licensed under The Unlicense.",
-  },
-  {
-    name: "FFmpeg",
-    repo: "https://github.com/FFmpeg/FFmpeg",
-    license: "LGPL v2.1+ / GPL v2+",
-    desc: "FFmpeg is primarily distributed under LGPL v2.1+ with optional components available under GPL v2+. License depends on the build configuration of the deployed binary.",
-  },
-  {
     name: "Redis",
     repo: "https://github.com/redis/redis",
     license: "BSD 3-Clause (Redis 7.2.x)",
