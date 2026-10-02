@@ -81,6 +81,11 @@ class YtDlpService:
 
             if "unsupported url" in err_msg or "no suitable extractor" in err_msg:
                 raise UnsupportedUrlError("That URL is not currently supported.", details=str(exc)) from exc
+            if "bot" in err_msg or "confirm you’re not a bot" in err_msg or "confirm you're not a bot" in err_msg:
+                raise PrivateContentError(
+                    "YouTube requires bot verification on this server. Please configure YOUTUBE_COOKIES or try another media link.",
+                    details=str(exc),
+                ) from exc
             if "private" in err_msg or "sign in" in err_msg or "login" in err_msg or "members only" in err_msg:
                 raise PrivateContentError(
                     "This media requires authentication or is private and cannot be accessed.",
@@ -105,10 +110,12 @@ class YtDlpService:
         except yt_dlp.utils.DownloadError as primary_err:
             if "youtube" in url.lower() or "youtu.be" in url.lower():
                 fallbacks = [
-                    ["android_creator", "tv_embedded"],
                     ["tv_embedded"],
+                    ["android_creator", "tv_embedded"],
+                    ["android_creator"],
                     ["android"],
                     ["tv"],
+                    ["mweb", "ios"],
                     ["web"],
                 ]
                 for client_chain in fallbacks:
