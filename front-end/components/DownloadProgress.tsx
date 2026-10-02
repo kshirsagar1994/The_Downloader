@@ -13,6 +13,9 @@ interface DownloadProgressProps {
 }
 
 export function DownloadProgress({ job, onCancel, onReset }: DownloadProgressProps) {
+  const [isSaving, setIsSaving] = React.useState(false);
+  const [saveError, setSaveError] = React.useState<string | null>(null);
+
   const isCompleted = job.status === "COMPLETED";
   const isFailed = job.status === "FAILED";
   const isCancelled = job.status === "CANCELLED";
@@ -45,15 +48,82 @@ export function DownloadProgress({ job, onCancel, onReset }: DownloadProgressPro
 
   const badge = getStatusBadge();
 
-  // Trigger browser download by visiting or opening the endpoint
-  const handleSaveToBrowser = () => {
+  const getTargetUrl = () => {
     if (job.download_url) {
-      const targetUrl = job.download_url.startsWith("http")
-        ? job.download_url
-        : `${API_BASE_URL}${job.download_url.startsWith("/") ? "" : "/"}${job.download_url}`;
-      window.location.href = targetUrl;
-    } else {
-      window.location.href = `${API_BASE_URL}/api/download/${job.job_id}`;
+      if (job.download_url.startsWith("http://") || job.download_url.startsWith("https://")) {
+        return job.download_url;
+      }
+      const cleanPath = job.download_url.startsWith("/") ? job.download_url : `/${job.download_url}`;
+      return `${API_BASE_URL}${cleanPath}`;
+    }
+    return `${API_BASE_URL}/api/download/${job.job_id}`;
+  };
+
+  // Trigger file download to device without navigating or resetting SPA state
+  const handleSaveToBrowser = async () => {
+    const targetUrl = getTargetUrl();
+    setIsSaving(true);
+    setSaveError(null);
+
+    try {
+      // Primary Method: Fetch Blob directly and trigger clean file save via Blob Object URL
+      const response = await fetch(targetUrl);
+      if (!response.ok) {
+        throw new Error(`Download server responded with HTTP ${response.status}`);
+      }
+
+      // Extract accurate filename from Content-Disposition if provided
+      let filename = job.filename || "download";
+      const disposition = response.headers.get("Content-Disposition");
+      if (disposition) {
+        const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+        if (utf8Match && utf8Match[1]) {
+          filename = decodeURIComponent(utf8Match[1]);
+        } else {
+          const asciiMatch = disposition.match(/filename="?([^";]+)"?/i);
+          if (asciiMatch && asciiMatch[1]) {
+            filename = asciiMatch[1];
+          }
+        }
+      }
+
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = filename;
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+
+      setTimeout(() => {
+        if (document.body.contains(link)) {
+          document.body.removeChild(link);
+        }
+        window.URL.revokeObjectURL(blobUrl);
+      }, 2000);
+    } catch (fetchErr: any) {
+      console.warn("Direct blob download failed, falling back to hidden iframe/anchor:", fetchErr);
+      // Fallback Method: Invisible anchor click with target="_blank" (never alters window.location.href)
+      try {
+        const link = document.createElement("a");
+        link.href = targetUrl;
+        link.download = job.filename || "download";
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.style.display = "none";
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(() => {
+          if (document.body.contains(link)) {
+            document.body.removeChild(link);
+          }
+        }, 2000);
+      } catch (fallbackErr: any) {
+        setSaveError(fetchErr?.message || "Failed to trigger file download.");
+      }
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -144,6 +214,20 @@ export function DownloadProgress({ job, onCancel, onReset }: DownloadProgressPro
         </div>
       )}
 
+      {/* Save Error notice if any */}
+      {saveError && (
+        <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs flex items-center justify-between gap-2">
+          <span>{saveError}</span>
+          <button
+            type="button"
+            onClick={handleSaveToBrowser}
+            className="underline font-semibold hover:text-amber-300"
+          >
+            Retry Save
+          </button>
+        </div>
+      )}
+
       {/* Error Message display */}
       {isFailed && (
         <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs space-y-1">
@@ -184,10 +268,20 @@ export function DownloadProgress({ job, onCancel, onReset }: DownloadProgressPro
             <button
               type="button"
               onClick={handleSaveToBrowser}
-              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-sm shadow-lg shadow-emerald-500/25 flex items-center gap-2 transition-all hover:scale-105 active:scale-95"
+              disabled={isSaving}
+              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-sm shadow-lg shadow-emerald-500/25 flex items-center gap-2 transition-all hover:scale-105 active:scale-95 disabled:opacity-75 disabled:cursor-not-allowed"
             >
-              <Download className="w-4 h-4" />
-              <span>Save File to Device</span>
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Saving to Device...</span>
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4" />
+                  <span>Save File to Device</span>
+                </>
+              )}
             </button>
           )}
         </div>

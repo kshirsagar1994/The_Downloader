@@ -91,5 +91,6 @@ async def download_media_file(job_id: str, request: Request):
             "Accept-Ranges": "bytes",
             "X-Content-Type-Options": "nosniff",
             "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Access-Control-Expose-Headers": "Content-Disposition, Content-Length",
         },
     )
