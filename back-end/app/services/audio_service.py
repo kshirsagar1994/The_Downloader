@@ -108,8 +108,7 @@ class AudioService:
             "socket_timeout": 30,
             "extractor_args": {
                 "youtube": {
-                    "player_client": ["android"],
-                    "player_skip": ["webpage", "configs"],
+                    "player_client": ["tv_embedded", "android_creator", "android"],
                 }
             },
         }

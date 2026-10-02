@@ -41,8 +41,7 @@ class YtDlpService:
             "playlist_items": f"1-{settings.MAX_PLAYLIST_ITEMS}",
             "extractor_args": {
                 "youtube": {
-                    "player_client": ["android"],
-                    "player_skip": ["webpage", "configs"],
+                    "player_client": ["tv_embedded", "android_creator", "android"],
                 }
             },
         }
@@ -104,19 +103,22 @@ class YtDlpService:
             with yt_dlp.YoutubeDL(options) as ydl:
                 return ydl.extract_info(url, download=False)
         except yt_dlp.utils.DownloadError as primary_err:
-            # If YouTube extraction failed on Android, try iOS / mweb fallback
             if "youtube" in url.lower() or "youtu.be" in url.lower():
                 fallbacks = [
-                    {"player_client": ["ios"], "player_skip": ["webpage", "configs"]},
-                    {"player_client": ["mweb"], "player_skip": ["webpage", "configs"]},
-                    {"player_client": ["tv_embedded"], "player_skip": ["webpage", "configs"]},
+                    ["android_creator", "tv_embedded"],
+                    ["tv_embedded"],
+                    ["android"],
+                    ["tv"],
+                    ["web"],
                 ]
-                for fb in fallbacks:
+                for client_chain in fallbacks:
                     fb_opts = dict(options)
-                    fb_opts["extractor_args"] = {"youtube": fb}
+                    fb_opts["extractor_args"] = {"youtube": {"player_client": client_chain}}
                     try:
                         with yt_dlp.YoutubeDL(fb_opts) as ydl_fb:
-                            return ydl_fb.extract_info(url, download=False)
+                            res = ydl_fb.extract_info(url, download=False)
+                            if res:
+                                return res
                     except Exception:
                         continue
             raise primary_err
