@@ -29,7 +29,9 @@ class MetadataService:
         playlist_items = cls.extract_playlist_items(raw_info) if is_playlist else []
 
         # Determine primary media type
-        if is_playlist and playlist_items:
+        if images and not video_formats and not audio_formats and not any(p.duration for p in playlist_items):
+            media_type = "gallery" if len(images) > 1 else "image"
+        elif is_playlist and playlist_items:
             media_type = "playlist"
         elif video_formats:
             media_type = "video"

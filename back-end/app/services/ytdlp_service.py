@@ -41,7 +41,7 @@ class YtDlpService:
             "playlist_items": f"1-{settings.MAX_PLAYLIST_ITEMS}",
             "extractor_args": {
                 "youtube": {
-                    "player_client": ["tv_embedded", "android_creator", "android"],
+                    "player_client": ["android", "android_creator", "tv_embedded", "ios"],
                 }
             },
         }
@@ -110,12 +110,12 @@ class YtDlpService:
         except yt_dlp.utils.DownloadError as primary_err:
             if "youtube" in url.lower() or "youtu.be" in url.lower():
                 fallbacks = [
-                    ["tv_embedded"],
-                    ["android_creator", "tv_embedded"],
-                    ["android_creator"],
                     ["android"],
+                    ["android_creator"],
+                    ["tv_embedded"],
+                    ["ios", "android"],
+                    ["mweb"],
                     ["tv"],
-                    ["mweb", "ios"],
                     ["web"],
                 ]
                 for client_chain in fallbacks:
