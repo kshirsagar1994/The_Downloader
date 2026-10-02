@@ -1,0 +1,47 @@
+Copyright (c) 2026 Kshirsagar
+All rights reserved.
+
+THE_DOWNLOADER PROPRIETARY SOFTWARE LICENSE
+
+OWNERSHIP
+The_Downloader, including its original source code, application logic, user interface, configuration, documentation, branding, designs, and other original materials created by the copyright holder, is proprietary software owned by the copyright holder identified above, except for third-party software and materials that are separately identified in THIRD-PARTY-NOTICES.md.
+
+PERMITTED USE
+You may view, inspect, and use the source code for personal development, evaluation, testing, and authorized development purposes.
+Any commercial deployment, redistribution, sublicensing, resale, hosting as a competing service, or distribution of substantial portions of the original source code requires prior written permission from the copyright holder.
+
+RESTRICTIONS
+Without prior written permission, you may not:
+- Redistribute substantial portions of The_Downloader source code.
+- Sell, sublicense, or transfer The_Downloader source code as your own software.
+- Publish substantial portions of the source code in another public repository.
+- Remove or obscure copyright, proprietary, or attribution notices belonging to the copyright holder.
+- Represent The_Downloader or its original code as software created by another person or organization.
+
+THIRD-PARTY SOFTWARE
+The_Downloader uses third-party software that is licensed separately from this proprietary license.
+Third-party components include, but are not limited to, yt-dlp, FFmpeg, Redis, Python packages, Node.js packages, and other open-source software.
+The rights granted by the licenses applicable to those third-party components are not restricted by this license.
+Applicable third-party license information is provided in:
+THIRD-PARTY-NOTICES.md
+
+NO TRADEMARK LICENSE
+This license does not grant permission to use any trademarks, service marks, logos, product names, or brand identities belonging to the copyright holder or any third party.
+
+NO WARRANTY
+THE_DOWNLOADER ORIGINAL CODE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, OR NONINFRINGEMENT, EXCEPT WHERE SUCH DISCLAIMERS ARE NOT PERMITTED BY APPLICABLE LAW.
+
+LIMITATION OF LIABILITY
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE COPYRIGHT HOLDER SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY, OR PUNITIVE DAMAGES ARISING FROM OR RELATED TO THE USE OF THE ORIGINAL THE_DOWNLOADER CODE.
+
+THIRD-PARTY RIGHTS
+Nothing in this license is intended to restrict rights granted to you under applicable third-party open-source licenses.
+
+CHANGES
+The copyright holder may update the licensing terms for future versions of The_Downloader. Each version will be governed by the license terms included with that version.
+
+CONTACT
+For commercial licensing, permissions, or other inquiries, contact the copyright holder through the official contact information published for The_Downloader.
+
+Copyright (c) 2026 Kshirsagar
+All rights reserved.

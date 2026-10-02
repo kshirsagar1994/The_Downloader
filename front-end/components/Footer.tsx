@@ -45,12 +45,17 @@ export function Footer() {
               </li>
               <li>
                 <Link href="/terms" className="hover:text-foreground transition-colors">
-                  Terms of Service
+                  Terms of Service & Acceptable Use
+                </Link>
+              </li>
+              <li>
+                <Link href="/notices" className="hover:text-foreground transition-colors">
+                  Third-Party Notices
                 </Link>
               </li>
               <li>
                 <Link href="/faq" className="hover:text-foreground transition-colors">
-                  Security & SSRF Protection
+                  Security & FAQ
                 </Link>
               </li>
             </ul>
@@ -81,11 +86,17 @@ export function Footer() {
         {/* Bottom Bar */}
         <div className="pt-8 border-t border-border/40 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
           <p>
-            © {new Date().getFullYear()} Universal Media Downloader. For authorized media downloads only.
+            &copy; 2026 Kshirsagar. All rights reserved. For authorized media downloads only.
           </p>
           <div className="flex items-center gap-4">
+            <Link href="/terms" className="hover:text-foreground transition-colors">Terms</Link>
+            <span>&middot;</span>
+            <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
+            <span>&middot;</span>
+            <Link href="/notices" className="hover:text-foreground transition-colors">Third-Party Notices</Link>
+            <span>&middot;</span>
             <span className="flex items-center gap-1.5">
-              <Shield className="w-3.5 h-3.5 text-emerald-400 inline" /> Privacy First Architecture
+              <Shield className="w-3.5 h-3.5 text-emerald-400 inline" /> Privacy First
             </span>
           </div>
         </div>
