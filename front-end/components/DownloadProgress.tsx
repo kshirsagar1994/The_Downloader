@@ -4,6 +4,7 @@ import * as React from "react";
 import { Download, Loader2, CheckCircle2, AlertCircle, XCircle, FileCheck, Sparkles, RefreshCw } from "lucide-react";
 import { JobProgressEvent } from "../types/media";
 import { formatBytes, formatSpeed, formatEta } from "../lib/utils";
+import { API_BASE_URL } from "../lib/api";
 
 interface DownloadProgressProps {
   job: JobProgressEvent;
@@ -49,7 +50,7 @@ export function DownloadProgress({ job, onCancel, onReset }: DownloadProgressPro
     if (job.download_url) {
       window.location.href = job.download_url;
     } else {
-      window.location.href = `/api/download/${job.job_id}`;
+      window.location.href = `${API_BASE_URL}/api/download/${job.job_id}`;
     }
   };
 

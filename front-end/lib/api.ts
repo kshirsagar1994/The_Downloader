@@ -23,7 +23,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
       if (response.status === 500 || response.status === 502 || response.status === 503 || response.status === 504) {
         throw new ApiError(
-          "Media Downloader backend server is currently unreachable. Please ensure the backend API is running on port 8000.",
+          "Media Downloader backend server is currently unreachable. Please ensure the backend service is running and accessible.",
           "BACKEND_UNAVAILABLE",
           response.status
         );
@@ -46,9 +46,13 @@ async function handleResponse<T>(response: Response): Promise<T> {
   return data as T;
 }
 
+export const API_BASE_URL = (
+  process.env.NEXT_PUBLIC_API_URL || "https://the-downloader-nlb5.onrender.com"
+).replace(/\/+$/, "");
+
 export async function extractMedia(url: string): Promise<ExtractionResult> {
   try {
-    const response = await fetch("/api/extract", {
+    const response = await fetch(`${API_BASE_URL}/api/extract`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url }),
@@ -70,7 +74,7 @@ export async function extractMedia(url: string): Promise<ExtractionResult> {
 
 export async function createJob(request: CreateJobRequest): Promise<{ job_id: string }> {
   try {
-    const response = await fetch("/api/jobs", {
+    const response = await fetch(`${API_BASE_URL}/api/jobs`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(request),
@@ -92,7 +96,7 @@ export async function createJob(request: CreateJobRequest): Promise<{ job_id: st
 
 export async function cancelJob(jobId: string): Promise<void> {
   try {
-    const response = await fetch(`/api/jobs/${jobId}/cancel`, {
+    const response = await fetch(`${API_BASE_URL}/api/jobs/${jobId}/cancel`, {
       method: "POST",
     });
     await handleResponse<{ success: boolean }>(response);
@@ -103,6 +107,6 @@ export async function cancelJob(jobId: string): Promise<void> {
 }
 
 export async function getJobStatus(jobId: string): Promise<JobProgressEvent> {
-  const response = await fetch(`/api/jobs/${jobId}`);
+  const response = await fetch(`${API_BASE_URL}/api/jobs/${jobId}`);
   return handleResponse<JobProgressEvent>(response);
 }

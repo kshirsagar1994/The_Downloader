@@ -24,7 +24,7 @@ import {
   Cpu,
 } from "lucide-react";
 
-import { extractMedia, createJob, cancelJob, ApiError } from "../lib/api";
+import { extractMedia, createJob, cancelJob, ApiError, API_BASE_URL } from "../lib/api";
 
 function DownloaderApp() {
   const { showToast } = useToast();
@@ -93,7 +93,7 @@ function DownloaderApp() {
 
   // SSE Subscription
   const subscribeToJobEvents = (jobId: string) => {
-    const eventSource = new EventSource(`/api/jobs/${jobId}/events`);
+    const eventSource = new EventSource(`${API_BASE_URL}/api/jobs/${jobId}/events`);
 
     eventSource.onmessage = (event) => {
       try {

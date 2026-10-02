@@ -16,6 +16,7 @@ import {
   Layers,
 } from "lucide-react";
 import { formatBytes } from "../../lib/utils";
+import { API_BASE_URL } from "../../lib/api";
 
 interface AdminMetrics {
   status: string;
@@ -54,7 +55,7 @@ export default function AdminDashboardPage() {
     setIsLoading(true);
     setErrorMsg(null);
     try {
-      const res = await fetch("/api/admin/metrics", {
+      const res = await fetch(`${API_BASE_URL}/api/admin/metrics`, {
         headers: { "x-admin-token": tokenToUse },
       });
 

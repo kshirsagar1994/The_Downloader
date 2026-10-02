@@ -97,9 +97,21 @@ class PlaylistService:
             "progress_hooks": [_progress_hook],
             "quiet": True,
             "no_warnings": True,
-            "ignoreerrors": True,  # Continue if an individual playlist entry is geo-blocked or unavailable
             "max_filesize": settings.MAX_FILE_SIZE_MB * 1024 * 1024,
             "socket_timeout": 30,
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["ios", "android", "mweb", "web"],
+                }
+            },
+            "http_headers": {
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/122.0.0.0 Safari/537.36"
+                ),
+                "Accept-Language": "en-US,en;q=0.9",
+            },
         }
 
         logger.info(
