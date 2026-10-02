@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     MAX_JOB_DURATION_SECONDS: int = 900
     MAX_EXTRACTION_TIMEOUT_SECONDS: int = 20
 
+    # YouTube & Authentication
+    YOUTUBE_COOKIES: str | None = None
+    COOKIES_FILE: str | None = None
+
     # Admin Portal
     ADMIN_SECRET_KEY: str = "change-this-to-a-secure-random-token-in-production"
 
@@ -59,6 +63,19 @@ class Settings(BaseSettings):
         p = Path(self.DOWNLOAD_DIR).resolve()
         p.mkdir(parents=True, exist_ok=True)
         return p
+
+    @property
+    def resolved_cookiefile(self) -> str | None:
+        if self.COOKIES_FILE and Path(self.COOKIES_FILE).exists():
+            return str(Path(self.COOKIES_FILE).resolve())
+        if self.YOUTUBE_COOKIES:
+            cookie_path = self.storage_path / "cookies.txt"
+            cookie_path.write_text(self.YOUTUBE_COOKIES.strip(), encoding="utf-8")
+            return str(cookie_path)
+        default_cookie = Path("./cookies.txt")
+        if default_cookie.exists():
+            return str(default_cookie.resolve())
+        return None
 
 
 @lru_cache

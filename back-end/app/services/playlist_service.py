@@ -101,11 +101,14 @@ class PlaylistService:
             "socket_timeout": 30,
             "extractor_args": {
                 "youtube": {
-                    "player_client": ["android", "ios"],
+                    "player_client": ["android"],
                     "player_skip": ["webpage", "configs"],
                 }
             },
         }
+
+        if settings.resolved_cookiefile:
+            ydl_opts["cookiefile"] = settings.resolved_cookiefile
 
         logger.info(
             f"Starting playlist download for {validated_url} (items: {playlist_items_spec}) in {job_dir.name}"

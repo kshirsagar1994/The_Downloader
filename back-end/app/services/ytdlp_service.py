@@ -36,11 +36,14 @@ class YtDlpService:
             "playlist_items": f"1-{settings.MAX_PLAYLIST_ITEMS}",
             "extractor_args": {
                 "youtube": {
-                    "player_client": ["android", "ios"],
+                    "player_client": ["android"],
                     "player_skip": ["webpage", "configs"],
                 }
             },
         }
+
+        if settings.resolved_cookiefile:
+            ydl_opts["cookiefile"] = settings.resolved_cookiefile
 
         try:
             logger.info(f"Extracting metadata for URL: {validated_url}")

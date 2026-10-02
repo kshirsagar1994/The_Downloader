@@ -108,11 +108,14 @@ class AudioService:
             "socket_timeout": 30,
             "extractor_args": {
                 "youtube": {
-                    "player_client": ["android", "ios"],
+                    "player_client": ["android"],
                     "player_skip": ["webpage", "configs"],
                 }
             },
         }
+
+        if settings.resolved_cookiefile:
+            ydl_opts["cookiefile"] = settings.resolved_cookiefile
 
         logger.info(
             f"Starting audio extraction for {validated_url} ({clean_ext} @ {clean_bitrate}k) in {job_dir.name}"
