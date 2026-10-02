@@ -1,6 +1,10 @@
 import asyncio
+import datetime
+import html as html_lib
+import re
 from typing import Any
 
+import httpx
 import yt_dlp
 
 from app.config import get_settings
@@ -11,7 +15,7 @@ from app.core.errors import (
     UnsupportedUrlError,
 )
 from app.core.logging import logger
-from app.schemas.media import ExtractionResult
+from app.schemas.media import ExtractionResult, MediaImageItem
 from app.security.ssrf import validate_url_ssrf
 from app.services.metadata_service import MetadataService
 
@@ -67,8 +71,17 @@ class YtDlpService:
             err_msg = str(exc).lower()
             logger.error(f"yt-dlp DownloadError: {exc}")
 
+            # Photo post fallback for Instagram, Twitter, Pinterest (when no video formats exist)
+            if "no video formats found" in err_msg or "instagram" in validated_url.lower() or "pinterest" in validated_url.lower():
+                try:
+                    social_result = await cls._extract_social_media_images(validated_url)
+                    if social_result:
+                        return social_result
+                except Exception as img_exc:
+                    logger.warning(f"Social image extraction fallback failed: {img_exc}")
+
             if "unsupported url" in err_msg or "no suitable extractor" in err_msg:
-                raise UnsupportedUrlError(f"That URL is not currently supported.", details=str(exc)) from exc
+                raise UnsupportedUrlError("That URL is not currently supported.", details=str(exc)) from exc
             if "private" in err_msg or "sign in" in err_msg or "login" in err_msg or "members only" in err_msg:
                 raise PrivateContentError(
                     "This media requires authentication or is private and cannot be accessed.",
@@ -107,3 +120,98 @@ class YtDlpService:
                     except Exception:
                         continue
             raise primary_err
+
+    @classmethod
+    async def _extract_social_media_images(cls, url: str) -> ExtractionResult | None:
+        """Fallback direct image and gallery parser for Instagram, Pinterest, and Twitter/X."""
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) "
+                "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1"
+            ),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+        }
+        try:
+            async with httpx.AsyncClient(follow_redirects=True, timeout=12.0, headers=headers) as client:
+                resp = await client.get(url)
+                if resp.status_code != 200:
+                    return None
+                content = resp.text
+
+            # Parse title
+            title = "Social Post"
+            title_match = re.search(r'<meta property="og:title" content="([^"]+)"', content)
+            if title_match:
+                title = html_lib.unescape(title_match.group(1)).strip()
+            else:
+                doc_title = re.search(r'<title>([^<]+)</title>', content)
+                if doc_title:
+                    title = html_lib.unescape(doc_title.group(1)).strip()
+
+            uploader = "Author"
+            if " on Instagram:" in title:
+                uploader = title.split(" on Instagram:")[0].strip()
+
+            desc = ""
+            desc_match = re.search(r'<meta property="og:description" content="([^"]+)"', content)
+            if desc_match:
+                desc = html_lib.unescape(desc_match.group(1)).strip()
+
+            # Collect image URLs
+            image_urls: list[str] = []
+            og_img = re.search(r'<meta property="og:image" content="([^"]+)"', content)
+            if og_img:
+                clean_og = html_lib.unescape(og_img.group(1)).replace("\\u0026", "&").replace("\\", "")
+                image_urls.append(clean_og)
+
+            # Check Instagram CDN URLs in body
+            cdn_matches = set(re.findall(r'https://[^"\'\s<>]+\.cdninstagram\.com/[^"\'\s<>]+', content))
+            for u in cdn_matches:
+                clean_u = html_lib.unescape(u).replace("\\u0026", "&").replace("\\", "")
+                if (".jpg" in clean_u or ".webp" in clean_u) and any(
+                    tag in clean_u for tag in ("t51.82787-15", "t51.2885-15", "p1080x1080", "s1080x1080", "c604")
+                ):
+                    if clean_u not in image_urls:
+                        image_urls.append(clean_u)
+
+            if not image_urls:
+                return None
+
+            items = [
+                MediaImageItem(
+                    id=f"img_{i+1}",
+                    url=img_url,
+                    preview_url=img_url,
+                    index=i,
+                    title=f"Photo {i+1}",
+                    format="jpg",
+                    width=None,
+                    height=None,
+                    filesize=None,
+                )
+                for i, img_url in enumerate(image_urls)
+            ]
+
+            media_type = "gallery" if len(items) > 1 else "image"
+            platform = "Instagram" if "instagram.com" in url else "Web"
+
+            return ExtractionResult(
+                url=url,
+                type=media_type,
+                title=title,
+                thumbnail=items[0].url if items else "",
+                duration=None,
+                uploader=uploader,
+                platform=platform,
+                description=desc,
+                video_formats=[],
+                audio_formats=[],
+                images=items,
+                playlist_items=[],
+                total_items=len(items) if len(items) > 1 else None,
+                created_at=datetime.datetime.now(datetime.UTC).isoformat(),
+            )
+        except Exception as exc:
+            logger.warning(f"Failed to extract social images for {url}: {exc}")
+            return None
