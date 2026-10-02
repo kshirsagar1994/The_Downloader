@@ -33,6 +33,7 @@ class YtDlpService:
             "no_warnings": True,
             "ignoreerrors": False,
             "socket_timeout": 15,
+            "geo_bypass": True,
             "playlist_items": f"1-{settings.MAX_PLAYLIST_ITEMS}",
             "extractor_args": {
                 "youtube": {
@@ -67,20 +68,42 @@ class YtDlpService:
             logger.error(f"yt-dlp DownloadError: {exc}")
 
             if "unsupported url" in err_msg or "no suitable extractor" in err_msg:
-                raise UnsupportedUrlError(f"That URL is not currently supported: {exc}") from exc
+                raise UnsupportedUrlError(f"That URL is not currently supported.", details=str(exc)) from exc
             if "private" in err_msg or "sign in" in err_msg or "login" in err_msg or "members only" in err_msg:
-                raise PrivateContentError("This media requires authentication or is private and cannot be accessed.") from exc
+                raise PrivateContentError(
+                    "This media requires authentication or is private and cannot be accessed.",
+                    details=str(exc),
+                ) from exc
             if "not found" in err_msg or "404" in err_msg or "unavailable" in err_msg:
-                raise ExtractionFailedError("The requested media was not found or is unavailable.") from exc
+                raise ExtractionFailedError("The requested media was not found or is unavailable.", details=str(exc)) from exc
 
-            raise ExtractionFailedError(f"Extraction failed: {exc}") from exc
+            raise ExtractionFailedError(f"Extraction failed: {exc}", details=str(exc)) from exc
 
         except Exception as exc:
             logger.error(f"Unexpected extraction exception: {exc}")
-            raise ExtractionFailedError(f"Unable to extract media: {exc}") from exc
+            raise ExtractionFailedError(f"Unable to extract media: {exc}", details=str(exc)) from exc
 
-    @staticmethod
-    def _run_extraction(url: str, options: dict[str, Any]) -> dict[str, Any]:
-        """Synchronous yt-dlp execution helper."""
-        with yt_dlp.YoutubeDL(options) as ydl:
-            return ydl.extract_info(url, download=False)
+    @classmethod
+    def _run_extraction(cls, url: str, options: dict[str, Any]) -> dict[str, Any]:
+        """Synchronous yt-dlp execution helper with client fallback."""
+        # Primary attempt
+        try:
+            with yt_dlp.YoutubeDL(options) as ydl:
+                return ydl.extract_info(url, download=False)
+        except yt_dlp.utils.DownloadError as primary_err:
+            # If YouTube extraction failed on Android, try iOS / mweb fallback
+            if "youtube" in url.lower() or "youtu.be" in url.lower():
+                fallbacks = [
+                    {"player_client": ["ios"], "player_skip": ["webpage", "configs"]},
+                    {"player_client": ["mweb"], "player_skip": ["webpage", "configs"]},
+                    {"player_client": ["tv_embedded"], "player_skip": ["webpage", "configs"]},
+                ]
+                for fb in fallbacks:
+                    fb_opts = dict(options)
+                    fb_opts["extractor_args"] = {"youtube": fb}
+                    try:
+                        with yt_dlp.YoutubeDL(fb_opts) as ydl_fb:
+                            return ydl_fb.extract_info(url, download=False)
+                    except Exception:
+                        continue
+            raise primary_err

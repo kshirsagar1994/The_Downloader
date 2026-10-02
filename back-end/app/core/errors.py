@@ -20,38 +20,46 @@ class DownloaderException(Exception):
 
 
 class UnsupportedUrlError(DownloaderException):
-    def __init__(self, message: str = "That URL is not currently supported."):
+    def __init__(self, message: str = "That URL is not currently supported.", details: Any | None = None):
         super().__init__(
             message=message,
             code="UNSUPPORTED_URL",
             status_code=status.HTTP_400_BAD_REQUEST,
+            details=details,
         )
 
 
 class PrivateContentError(DownloaderException):
-    def __init__(self, message: str = "This media requires authentication or is private and cannot be accessed."):
+    def __init__(
+        self,
+        message: str = "This media requires authentication or is private and cannot be accessed.",
+        details: Any | None = None,
+    ):
         super().__init__(
             message=message,
             code="PRIVATE_CONTENT",
             status_code=status.HTTP_403_FORBIDDEN,
+            details=details,
         )
 
 
 class RateLimitExceededError(DownloaderException):
-    def __init__(self, message: str = "Too many requests. Please try again later."):
+    def __init__(self, message: str = "Too many requests. Please try again later.", details: Any | None = None):
         super().__init__(
             message=message,
             code="RATE_LIMITED",
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            details=details,
         )
 
 
 class ExtractionFailedError(DownloaderException):
-    def __init__(self, message: str = "We couldn't extract media information from this URL."):
+    def __init__(self, message: str = "We couldn't extract media information from this URL.", details: Any | None = None):
         super().__init__(
             message=message,
             code="EXTRACTION_FAILED",
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            details=details,
         )
 
 
