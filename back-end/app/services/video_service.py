@@ -6,7 +6,7 @@ from typing import Any
 import yt_dlp
 
 from app.config import get_settings
-from app.core.errors import ExtractionFailedError, ProcessingFailedError
+from app.core.errors import ProcessingFailedError
 from app.core.logging import logger
 from app.schemas.job import JobProgressEvent
 from app.security.sanitization import sanitize_filename
@@ -105,14 +105,21 @@ class VideoService:
 
         logger.info(f"Starting video download for {validated_url} (format: {selected_format}) in {job_dir.name}")
 
+        from app.core.errors import DownloaderException
+        from app.services.error_classifier import classify_ytdlp_error
+
         try:
             await asyncio.to_thread(cls._run_ydl_download, validated_url, ydl_opts)
         except yt_dlp.utils.DownloadError as exc:
             logger.error(f"yt-dlp Video DownloadError: {exc}")
-            raise ExtractionFailedError(f"Video download failed: {exc}") from exc
+            classified = classify_ytdlp_error(exc, validated_url)
+            raise classified from exc
+        except DownloaderException:
+            raise
         except Exception as exc:
             logger.error(f"Video download exception: {exc}")
-            raise ProcessingFailedError(f"Download processing failed: {exc}") from exc
+            classified = classify_ytdlp_error(exc, validated_url)
+            raise classified from exc
 
         # Find the produced output file
         candidates = [

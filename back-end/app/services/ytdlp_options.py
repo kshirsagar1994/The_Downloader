@@ -40,6 +40,8 @@ def build_base_ydl_opts(overrides: dict[str, Any] | None = None) -> dict[str, An
             "base_url": provider_url,
         }
 
+    import shutil
+
     opts: dict[str, Any] = {
         "quiet": True,
         "no_warnings": True,
@@ -48,6 +50,18 @@ def build_base_ydl_opts(overrides: dict[str, Any] | None = None) -> dict[str, An
         "geo_bypass": True,
         "extractor_args": extractor_args,
     }
+
+    # Enable JavaScript runtime for YouTube player signature challenges
+    js_runtime: dict[str, Any] = {}
+    if shutil.which("node"):
+        js_runtime["node"] = {}
+    elif shutil.which("deno"):
+        js_runtime["deno"] = {}
+    elif shutil.which("bun"):
+        js_runtime["bun"] = {}
+
+    if js_runtime:
+        opts["js_runtimes"] = js_runtime
 
     if settings.resolved_cookiefile:
         opts["cookiefile"] = settings.resolved_cookiefile

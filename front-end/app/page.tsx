@@ -31,7 +31,14 @@ function DownloaderApp() {
 
   const [currentUrl, setCurrentUrl] = React.useState<string>("");
   const [isLoading, setIsLoading] = React.useState<boolean>(false);
-  const [errorInfo, setErrorInfo] = React.useState<{ title: string; message: string; code?: string } | null>(null);
+  const [errorInfo, setErrorInfo] = React.useState<{
+    title: string;
+    message: string;
+    code?: string;
+    userAction?: string;
+    retryable?: boolean;
+    jobId?: string;
+  } | null>(null);
   const [extractedMedia, setExtractedMedia] = React.useState<ExtractionResult | null>(null);
   const [activeJob, setActiveJob] = React.useState<JobProgressEvent | null>(null);
 
@@ -50,12 +57,18 @@ function DownloaderApp() {
     } catch (err: any) {
       const code = err instanceof ApiError ? err.code : "EXTRACTION_FAILED";
       const message = err.message || "Could not analyze this URL. Please verify the URL is public and supported.";
+      const userAction = err instanceof ApiError ? err.userAction : undefined;
+      const retryable = err instanceof ApiError ? (err.retryable ?? true) : true;
+      const jobId = err instanceof ApiError ? err.jobId : undefined;
       setErrorInfo({
-        title: "Extraction Error",
+        title: code === "BOT_VERIFICATION_REQUIRED" ? "Verification Required" : "Extraction Error",
         message,
         code,
+        userAction,
+        retryable,
+        jobId,
       });
-      showToast("Extraction Failed", message, "error");
+      showToast(code === "BOT_VERIFICATION_REQUIRED" ? "Verification Required" : "Extraction Failed", message, "error");
     } finally {
       setIsLoading(false);
     }
@@ -182,6 +195,9 @@ function DownloaderApp() {
               title={errorInfo.title}
               message={errorInfo.message}
               code={errorInfo.code}
+              userAction={errorInfo.userAction}
+              retryable={errorInfo.retryable}
+              jobId={errorInfo.jobId}
               onRetry={() => handleAnalyze(currentUrl)}
               onReset={handleReset}
             />

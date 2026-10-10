@@ -1,10 +1,36 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
-import { DownloadCloud, Sparkles, ShieldCheck, Layers } from "lucide-react";
+import { DownloadCloud, Sparkles, ShieldCheck, Layers, Share2, Check } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 
 export function Header() {
+  const [copied, setCopied] = React.useState(false);
+
+  const handleShareApp = async () => {
+    const url = typeof window !== "undefined" ? window.location.origin : "";
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({
+          title: "The Downloader — Universal Media Downloader",
+          text: "Download videos, audio, and galleries in highest quality for free!",
+          url,
+        });
+        return;
+      } catch (err: any) {
+        if (err.name === "AbortError") return;
+      }
+    }
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch {}
+    }
+  };
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/80 backdrop-blur-xl transition-all">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -54,7 +80,26 @@ export function Header() {
         </nav>
 
         {/* Actions */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={handleShareApp}
+            className="px-3 py-1.5 rounded-xl border border-border/70 hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-all flex items-center gap-1.5 text-xs font-medium"
+            title="Share The Downloader"
+          >
+            {copied ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="text-emerald-400 font-semibold">Copied!</span>
+              </>
+            ) : (
+              <>
+                <Share2 className="w-3.5 h-3.5 text-primary" />
+                <span>Share</span>
+              </>
+            )}
+          </button>
+
           <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             Engine Online

@@ -80,6 +80,8 @@ export interface JobProgressEvent {
   download_url?: string;
   error_code?: string;
   error_message?: string;
+  user_action?: string;
+  retryable?: boolean;
 }
 
 export interface CreateJobRequest {

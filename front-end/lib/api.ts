@@ -3,12 +3,25 @@ import { ExtractionResult, CreateJobRequest, JobProgressEvent } from "../types/m
 export class ApiError extends Error {
   code: string;
   status?: number;
+  retryable?: boolean;
+  userAction?: string;
+  jobId?: string;
 
-  constructor(message: string, code: string = "REQUEST_FAILED", status?: number) {
+  constructor(
+    message: string,
+    code: string = "REQUEST_FAILED",
+    status?: number,
+    retryable?: boolean,
+    userAction?: string,
+    jobId?: string
+  ) {
     super(message);
     this.name = "ApiError";
     this.code = code;
     this.status = status;
+    this.retryable = retryable;
+    this.userAction = userAction;
+    this.jobId = jobId;
   }
 }
 
@@ -25,22 +38,36 @@ async function handleResponse<T>(response: Response): Promise<T> {
         throw new ApiError(
           "Media Downloader backend server is currently unreachable. Please ensure the backend service is running and accessible.",
           "BACKEND_UNAVAILABLE",
-          response.status
+          response.status,
+          true
         );
       }
       throw new ApiError(
         `Server responded with error (${response.status}): ${text.slice(0, 100) || response.statusText}`,
         "SERVER_ERROR",
-        response.status
+        response.status,
+        false
       );
     }
     throw new ApiError("Received invalid response from server.", "INVALID_RESPONSE", response.status);
   }
 
   if (!response.ok) {
-    const errorMsg = data?.detail || data?.error_message || data?.message || `Request failed with status ${response.status}`;
-    const errorCode = data?.error_code || "REQUEST_FAILED";
-    throw new ApiError(errorMsg, errorCode, response.status);
+    const errorObj = data?.error;
+    const errorMsg =
+      errorObj?.message ||
+      data?.detail ||
+      data?.error_message ||
+      data?.message ||
+      `Request failed with status ${response.status}`;
+    const errorCode = errorObj?.code || data?.error_code || "REQUEST_FAILED";
+    const retryable =
+      errorObj?.retryable !== undefined
+        ? errorObj.retryable
+        : response.status === 429 || response.status === 504;
+    const userAction = errorObj?.userAction || data?.user_action;
+    const jobId = data?.job_id;
+    throw new ApiError(errorMsg, errorCode, response.status, retryable, userAction, jobId);
   }
 
   return data as T;

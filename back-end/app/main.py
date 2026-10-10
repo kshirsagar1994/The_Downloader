@@ -19,7 +19,11 @@ settings = get_settings()
 async def lifespan(app: FastAPI):
     # Ensure ephemeral storage directory exists
     _ = settings.storage_path
-    yield
+    try:
+        yield
+    finally:
+        # Cleanup temporary authentication artifacts on shutdown
+        settings.cleanup_temp_cookies()
 
 
 app = FastAPI(
@@ -58,6 +62,12 @@ async def downloader_exception_handler(request: Request, exc: DownloaderExceptio
             "success": False,
             "error_code": exc.code,
             "error_message": exc.message,
+            "error": {
+                "code": exc.code,
+                "message": exc.message,
+                "retryable": exc.retryable,
+                "userAction": exc.user_action,
+            },
             "details": exc.details,
         },
     )

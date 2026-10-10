@@ -6,7 +6,7 @@ from typing import Any
 import yt_dlp
 
 from app.config import get_settings
-from app.core.errors import ExtractionFailedError, ProcessingFailedError
+from app.core.errors import ProcessingFailedError
 from app.core.logging import logger
 from app.schemas.job import JobProgressEvent
 from app.security.sanitization import sanitize_extension, sanitize_filename
@@ -111,14 +111,21 @@ class AudioService:
             f"Starting audio extraction for {validated_url} ({clean_ext} @ {clean_bitrate}k) in {job_dir.name}"
         )
 
+        from app.core.errors import DownloaderException
+        from app.services.error_classifier import classify_ytdlp_error
+
         try:
             await asyncio.to_thread(cls._run_ydl_download, validated_url, ydl_opts)
         except yt_dlp.utils.DownloadError as exc:
             logger.error(f"yt-dlp Audio DownloadError: {exc}")
-            raise ExtractionFailedError(f"Audio extraction failed: {exc}") from exc
+            classified = classify_ytdlp_error(exc, validated_url)
+            raise classified from exc
+        except DownloaderException:
+            raise
         except Exception as exc:
             logger.error(f"Audio download exception: {exc}")
-            raise ProcessingFailedError(f"Audio processing failed: {exc}") from exc
+            classified = classify_ytdlp_error(exc, validated_url)
+            raise classified from exc
 
         # Find final audio output file
         candidates = [

@@ -10,22 +10,14 @@ import yt_dlp
 
 from app.config import get_settings
 from app.core.errors import (
-    AgeRestrictedError,
+    DownloaderException,
     ExtractionFailedError,
-    FormatUnavailableError,
-    LoginRequiredError,
-    NetworkError,
     OperationTimeoutError,
-    POTokenError,
-    PrivateContentError,
-    RateLimitExceededError,
-    UnsupportedUrlError,
-    VideoUnavailableError,
-    YouTubeBotCheckError,
 )
 from app.core.logging import logger
 from app.schemas.media import ExtractionResult, MediaImageItem
 from app.security.ssrf import validate_url_ssrf
+from app.services.error_classifier import classify_ytdlp_error
 from app.services.metadata_service import MetadataService
 from app.services.ytdlp_options import build_base_ydl_opts, get_youtube_fallback_clients
 
@@ -87,73 +79,17 @@ class YtDlpService:
                 except Exception as img_exc:
                     logger.warning(f"Social image extraction fallback failed: {img_exc}")
 
-            # Granular error classification
-            if "unsupported url" in err_msg or "no suitable extractor" in err_msg:
-                raise UnsupportedUrlError("That URL is not currently supported.", details=str(exc)) from exc
+            # Centralized deterministic error classification
+            classified_err = classify_ytdlp_error(exc, validated_url)
+            raise classified_err from exc
 
-            if "po_token" in err_msg or "pot" in err_msg or "botguard" in err_msg:
-                raise POTokenError(
-                    "YouTube requested a Proof-of-Origin token that could not be generated. Please retry shortly.",
-                    details=str(exc),
-                ) from exc
-
-            if "bot" in err_msg or "confirm you’re not a bot" in err_msg or "confirm you're not a bot" in err_msg:
-                has_pot = bool(settings.resolved_po_token_provider_url or settings.YOUTUBE_PO_TOKEN)
-                has_cookies = bool(settings.resolved_cookiefile)
-
-                if has_cookies:
-                    guidance = (
-                        "YouTube challenged this request with bot verification. "
-                        "The authentication cookies may have expired or need renewal."
-                    )
-                elif has_pot:
-                    guidance = (
-                        "YouTube challenged this request with bot verification. "
-                        "The PO Token Provider may need a refresh or the host IP is restricted."
-                    )
-                else:
-                    guidance = (
-                        "YouTube temporarily challenged this request with bot verification on this server. "
-                        "To resolve on cloud hosts, configure YOUTUBE_COOKIES, PO_TOKEN_PROVIDER_URL, or a residential PROXY."
-                    )
-
-                raise YouTubeBotCheckError(
-                    guidance,
-                    details=str(exc),
-                ) from exc
-
-            if "sign in" in err_msg or "login" in err_msg or "members only" in err_msg or "premium" in err_msg:
-                raise LoginRequiredError(
-                    "This media requires a signed-in account or membership to access.",
-                    details=str(exc),
-                ) from exc
-
-            if "age" in err_msg or "confirm your age" in err_msg:
-                raise AgeRestrictedError(
-                    "This content is age-restricted and requires account verification.",
-                    details=str(exc),
-                ) from exc
-
-            if "private" in err_msg:
-                raise PrivateContentError(
-                    "This media is private and cannot be accessed.",
-                    details=str(exc),
-                ) from exc
-
-            if "not found" in err_msg or "404" in err_msg or "unavailable" in err_msg or "does not exist" in err_msg or "video has been removed" in err_msg:
-                raise VideoUnavailableError("The requested media was not found or is unavailable.", details=str(exc)) from exc
-
-            if "format is not available" in err_msg:
-                raise FormatUnavailableError("The requested video stream or format is not available.") from exc
-
-            if "network" in err_msg or "connection refused" in err_msg or "timed out" in err_msg:
-                raise NetworkError("A temporary network error occurred while connecting to the source.", details=str(exc)) from exc
-
-            raise ExtractionFailedError(f"Extraction failed: {exc}", details=str(exc)) from exc
+        except DownloaderException:
+            raise
 
         except Exception as exc:
             logger.error(f"Unexpected extraction exception: {exc}")
-            raise ExtractionFailedError(f"Unable to extract media: {exc}", details=str(exc)) from exc
+            classified_err = classify_ytdlp_error(exc, validated_url)
+            raise classified_err from exc
 
     @classmethod
     def _run_extraction(cls, url: str, options: dict[str, Any]) -> dict[str, Any]:
@@ -163,9 +99,15 @@ class YtDlpService:
             with yt_dlp.YoutubeDL(options) as ydl:
                 return ydl.extract_info(url, download=False)
         except yt_dlp.utils.DownloadError as primary_err:
+            err_str = str(primary_err).lower()
+            # If YouTube explicitly challenges with bot verification or login, do NOT hammer YouTube with 9 fallback requests
+            if any(k in err_str for k in ("confirm you're not a bot", "confirm you’re not a bot", "bot verification", "sign in", "login required")):
+                raise primary_err
+
             if "youtube" in url.lower() or "youtu.be" in url.lower():
                 fallbacks = get_youtube_fallback_clients()
-                for client_chain in fallbacks:
+                # Limit retries to at most 2 alternative clients to prevent flooding
+                for client_chain in fallbacks[:2]:
                     fb_opts = copy.deepcopy(options)
                     if "extractor_args" not in fb_opts or not isinstance(fb_opts["extractor_args"], dict):
                         fb_opts["extractor_args"] = {}

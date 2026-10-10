@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev --port 3000",
     "build": "next build",
+    "build:shared-hosting": "next build && python ../scripts/build_shared_hosting.py",
     "start": "next start --port 3000",
     "lint": "next lint"
   },

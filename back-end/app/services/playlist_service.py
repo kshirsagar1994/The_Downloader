@@ -105,11 +105,21 @@ class PlaylistService:
             f"Starting playlist download for {validated_url} (items: {playlist_items_spec}) in {job_dir.name}"
         )
 
+        from app.core.errors import DownloaderException
+        from app.services.error_classifier import classify_ytdlp_error
+
         try:
             await asyncio.to_thread(cls._run_ydl_download, validated_url, ydl_opts)
+        except yt_dlp.utils.DownloadError as exc:
+            logger.error(f"Playlist download error: {exc}")
+            classified = classify_ytdlp_error(exc, validated_url)
+            raise classified from exc
+        except DownloaderException:
+            raise
         except Exception as exc:
             logger.error(f"Playlist download exception: {exc}")
-            raise ProcessingFailedError(f"Playlist processing failed: {exc}") from exc
+            classified = classify_ytdlp_error(exc, validated_url)
+            raise classified from exc
 
         # Find produced files
         downloaded_files = [

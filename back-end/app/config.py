@@ -52,10 +52,13 @@ class Settings(BaseSettings):
     YOUTUBE_PO_TOKEN: str | None = None
     YOUTUBE_VISITOR_DATA: str | None = None
     YOUTUBE_COOKIES: str | None = None
+    YOUTUBE_COOKIES_FILE: str | None = None
     COOKIES_FILE: str | None = None
     YOUTUBE_CLIENTS: str | None = None
+    YT_DLP_UPDATE_CHANNEL: str = "stable"
 
     # Proxy Configuration (Residential / Datacenter Bypass)
+    YOUTUBE_PROXY_URL: str | None = None
     YOUTUBE_PROXY: str | None = None
     HTTP_PROXY: str | None = None
     HTTPS_PROXY: str | None = None
@@ -75,18 +78,46 @@ class Settings(BaseSettings):
 
     @property
     def resolved_po_token_provider_url(self) -> str | None:
-        if self.PO_TOKEN_PROVIDER_URL:
-            return self.PO_TOKEN_PROVIDER_URL.rstrip("/")
-        return None
+        """
+        Validates and returns the PO Token Provider URL.
+        Prevents SSRF by enforcing valid http/https schemes and valid hostnames.
+        """
+        if not self.PO_TOKEN_PROVIDER_URL or not self.PO_TOKEN_PROVIDER_URL.strip():
+            return None
+        raw_url = self.PO_TOKEN_PROVIDER_URL.strip().rstrip("/")
+        from urllib.parse import urlparse
+        try:
+            parsed = urlparse(raw_url)
+            if parsed.scheme.lower() not in ("http", "https"):
+                return None
+            if not parsed.hostname:
+                return None
+            return raw_url
+        except Exception:
+            return None
 
     @property
     def resolved_proxy(self) -> str | None:
-        if self.YOUTUBE_PROXY and self.YOUTUBE_PROXY.strip():
-            return self.YOUTUBE_PROXY.strip()
-        if self.HTTPS_PROXY and self.HTTPS_PROXY.strip():
-            return self.HTTPS_PROXY.strip()
-        if self.HTTP_PROXY and self.HTTP_PROXY.strip():
-            return self.HTTP_PROXY.strip()
+        """
+        Resolves configured proxy with scheme validation (http, https, socks5, socks5h).
+        Prioritizes YOUTUBE_PROXY_URL, then YOUTUBE_PROXY, HTTPS_PROXY, HTTP_PROXY.
+        """
+        candidate = (
+            (self.YOUTUBE_PROXY_URL and self.YOUTUBE_PROXY_URL.strip())
+            or (self.YOUTUBE_PROXY and self.YOUTUBE_PROXY.strip())
+            or (self.HTTPS_PROXY and self.HTTPS_PROXY.strip())
+            or (self.HTTP_PROXY and self.HTTP_PROXY.strip())
+        )
+        if not candidate:
+            return None
+
+        from urllib.parse import urlparse
+        try:
+            parsed = urlparse(candidate)
+            if parsed.scheme.lower() in ("http", "https", "socks5", "socks5h"):
+                return candidate
+        except Exception:
+            pass
         return None
 
     @property
@@ -100,16 +131,56 @@ class Settings(BaseSettings):
 
     @property
     def resolved_cookiefile(self) -> str | None:
-        if self.COOKIES_FILE and Path(self.COOKIES_FILE).exists():
-            return str(Path(self.COOKIES_FILE).resolve())
+        """
+        Safely locates or constructs a restricted Netscape-format cookie file.
+        Supports:
+        1. YOUTUBE_COOKIES_FILE or COOKIES_FILE on disk.
+        2. YOUTUBE_COOKIES env var (auto-detects base64 or raw string).
+        3. Local default ./cookies.txt if present.
+        """
+        # 1. Dedicated file path configuration
+        candidate_file = self.YOUTUBE_COOKIES_FILE or self.COOKIES_FILE
+        if candidate_file:
+            path = Path(candidate_file).resolve()
+            if path.exists() and path.is_file():
+                return str(path)
+
+        # 2. String/Base64 environment variable
         if self.YOUTUBE_COOKIES and self.YOUTUBE_COOKIES.strip():
-            cookie_path = self.storage_path / "cookies.txt"
-            cookie_path.write_text(self.YOUTUBE_COOKIES.strip(), encoding="utf-8")
+            raw_content = self.YOUTUBE_COOKIES.strip()
+            # Attempt base64 decode if applicable
+            cookie_text: str
+            import base64
+            try:
+                decoded_bytes = base64.b64decode(raw_content, validate=True)
+                cookie_text = decoded_bytes.decode("utf-8")
+            except Exception:
+                cookie_text = raw_content
+
+            # Write to access-restricted temporary cookie file
+            cookie_path = self.storage_path / ".auth_cookies.txt"
+            cookie_path.write_text(cookie_text, encoding="utf-8")
+            try:
+                # Restrict file permissions to owner read/write (POSIX 0600)
+                cookie_path.chmod(0o600)
+            except (OSError, NotImplementedError):
+                pass
             return str(cookie_path)
+
+        # 3. Default fallback
         default_cookie = Path("./cookies.txt")
         if default_cookie.exists():
             return str(default_cookie.resolve())
         return None
+
+    def cleanup_temp_cookies(self) -> None:
+        """Safely cleans up temporary cookie artifacts from disk."""
+        try:
+            cookie_path = self.storage_path / ".auth_cookies.txt"
+            if cookie_path.exists():
+                cookie_path.unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 @lru_cache

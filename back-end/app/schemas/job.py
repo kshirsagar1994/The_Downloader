@@ -1,4 +1,5 @@
 from typing import Any
+
 from pydantic import BaseModel, field_validator
 
 
@@ -33,6 +34,8 @@ class JobProgressEvent(BaseModel):
     download_url: str | None = None
     error_code: str | None = None
     error_message: str | None = None
+    user_action: str | None = None
+    retryable: bool | None = None
 
     @field_validator("downloaded_bytes", "total_bytes", "eta", mode="before")
     @classmethod

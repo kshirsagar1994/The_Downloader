@@ -1,12 +1,15 @@
 "use client";
 
 import * as React from "react";
-import { AlertTriangle, RefreshCcw, ShieldAlert, ArrowLeft } from "lucide-react";
+import { AlertTriangle, RefreshCcw, ShieldAlert, ArrowLeft, Info } from "lucide-react";
 
 interface ErrorStateProps {
   title?: string;
   message: string;
   code?: string;
+  userAction?: string;
+  retryable?: boolean;
+  jobId?: string;
   onRetry?: () => void;
   onReset?: () => void;
 }
@@ -15,6 +18,9 @@ export function ErrorState({
   title = "Extraction Error",
   message,
   code,
+  userAction,
+  retryable = true,
+  jobId,
   onRetry,
   onReset,
 }: ErrorStateProps) {
@@ -36,19 +42,41 @@ export function ErrorState({
         </p>
       </div>
 
+      {userAction && (
+        <div className="p-3.5 rounded-xl bg-card/80 border border-border/80 text-xs text-left max-w-md mx-auto space-y-1">
+          <div className="flex items-center gap-1.5 text-primary font-semibold text-xs">
+            <Info className="w-3.5 h-3.5" />
+            <span>Recommended Action</span>
+          </div>
+          <p className="text-muted-foreground leading-relaxed pl-5">
+            {userAction}
+          </p>
+        </div>
+      )}
+
+      {jobId && (
+        <div className="text-[11px] font-mono text-muted-foreground/60">
+          Diagnostic ID: {jobId}
+        </div>
+      )}
+
       <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
         {onReset && (
           <button
             type="button"
             onClick={onReset}
-            className="px-4 py-2 text-xs font-medium text-muted-foreground hover:text-foreground rounded-xl border border-border bg-card hover:bg-muted transition-colors flex items-center gap-1.5"
+            className={`px-4 py-2 text-xs font-medium rounded-xl border transition-colors flex items-center gap-1.5 ${
+              !retryable
+                ? "bg-primary text-white hover:bg-primary/90 border-transparent shadow-md shadow-primary/20"
+                : "text-muted-foreground hover:text-foreground border-border bg-card hover:bg-muted"
+            }`}
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             Try Another Link
           </button>
         )}
 
-        {onRetry && (
+        {onRetry && retryable && (
           <button
             type="button"
             onClick={onRetry}

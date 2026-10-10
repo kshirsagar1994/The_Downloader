@@ -12,6 +12,7 @@
     "dev:api": "cd back-end && ..\\.venv\\Scripts\\python.exe -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000",
     "clean": "powershell -Command \"if (Test-Path front-end/.next) { Remove-Item -Recurse -Force front-end/.next }\"",
     "build": "npm --prefix front-end run build",
+    "build:shared-hosting": "npm --prefix front-end run build && python scripts/build_shared_hosting.py",
     "start": "npm --prefix front-end run start",
     "lint:web": "npm --prefix front-end run lint"
   }

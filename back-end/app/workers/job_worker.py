@@ -1,5 +1,4 @@
 import asyncio
-import traceback
 from pathlib import Path
 
 from app.config import get_settings
@@ -146,6 +145,8 @@ class JobWorker:
                 stage_message="Failed",
                 error_code=exc.code,
                 error_message=exc.message,
+                user_action=exc.user_action,
+                retryable=exc.retryable,
             )
             await queue_service.save_job_state(failed_event)
 
@@ -155,13 +156,17 @@ class JobWorker:
                 logger.info(f"Job {job_id} was cancelled; skipping unexpected error handler.")
                 return
 
-            logger.error(f"Job {job_id} unexpected failure: {exc}\n{traceback.format_exc()}")
+            from app.services.error_classifier import classify_ytdlp_error
+            classified = classify_ytdlp_error(exc, request.url)
+            logger.error(f"Job {job_id} unexpected failure: {classified.message}")
             failed_event = JobProgressEvent(
                 job_id=job_id,
                 status="FAILED",
                 progress=0.0,
                 stage_message="Failed",
-                error_code="PROCESSING_ERROR",
-                error_message=str(exc),
+                error_code=classified.code,
+                error_message=classified.message,
+                user_action=classified.user_action,
+                retryable=classified.retryable,
             )
             await queue_service.save_job_state(failed_event)

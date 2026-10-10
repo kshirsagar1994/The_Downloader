@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Download, Loader2, CheckCircle2, AlertCircle, XCircle, FileCheck, Sparkles, RefreshCw } from "lucide-react";
+import { Download, Loader2, CheckCircle2, AlertCircle, XCircle, FileCheck, Sparkles, RefreshCw, Share2, Check } from "lucide-react";
 import { JobProgressEvent } from "../types/media";
 import { formatBytes, formatSpeed, formatEta } from "../lib/utils";
 import { API_BASE_URL } from "../lib/api";
@@ -15,6 +15,7 @@ interface DownloadProgressProps {
 export function DownloadProgress({ job, onCancel, onReset }: DownloadProgressProps) {
   const [isSaving, setIsSaving] = React.useState(false);
   const [saveError, setSaveError] = React.useState<string | null>(null);
+  const [shareCopied, setShareCopied] = React.useState(false);
 
   const isCompleted = job.status === "COMPLETED";
   const isFailed = job.status === "FAILED";
@@ -22,6 +23,31 @@ export function DownloadProgress({ job, onCancel, onReset }: DownloadProgressPro
   const isProcessing = ["QUEUED", "ANALYZING", "DOWNLOADING", "PROCESSING", "PACKAGING"].includes(
     job.status
   );
+
+  const handleShare = async () => {
+    const title = job.filename ? `Download ${job.filename}` : "The Downloader";
+    const text = "Download high quality video and audio with The Downloader!";
+    const url = typeof window !== "undefined" ? window.location.origin : "";
+
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({ title, text, url });
+        return;
+      } catch (err: any) {
+        if (err.name === "AbortError") return;
+      }
+    }
+
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(url);
+        setShareCopied(true);
+        setTimeout(() => setShareCopied(false), 2500);
+      } catch {
+        // clipboard access denied or unsupported
+      }
+    }
+  };
 
   const getStatusBadge = () => {
     switch (job.status) {
@@ -230,14 +256,25 @@ export function DownloadProgress({ job, onCancel, onReset }: DownloadProgressPro
 
       {/* Error Message display */}
       {isFailed && (
-        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs space-y-1">
-          <div className="font-semibold flex items-center gap-1.5">
-            <AlertCircle className="w-4 h-4" />
-            {job.error_code || "DOWNLOAD_ERROR"}
+        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs space-y-2">
+          <div className="font-semibold flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <AlertCircle className="w-4 h-4" />
+              {job.error_code || "DOWNLOAD_ERROR"}
+            </span>
+            <span className="font-mono text-[10px] text-rose-400/70">
+              Task: {job.job_id.substring(0, 8)}...
+            </span>
           </div>
-          <p className="text-rose-300/80 leading-relaxed">
+          <p className="text-rose-300/90 leading-relaxed">
             {job.error_message || "An unexpected error occurred during extraction or downloading."}
           </p>
+          {job.user_action && (
+            <div className="p-2.5 rounded-lg bg-card/60 border border-rose-500/20 text-muted-foreground text-[11px] leading-relaxed">
+              <span className="font-semibold text-rose-300 block mb-0.5">Recommended Action:</span>
+              {job.user_action}
+            </div>
+          )}
         </div>
       )}
 
@@ -265,24 +302,45 @@ export function DownloadProgress({ job, onCancel, onReset }: DownloadProgressPro
           )}
 
           {isCompleted && (
-            <button
-              type="button"
-              onClick={handleSaveToBrowser}
-              disabled={isSaving}
-              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-sm shadow-lg shadow-emerald-500/25 flex items-center gap-2 transition-all hover:scale-105 active:scale-95 disabled:opacity-75 disabled:cursor-not-allowed"
-            >
-              {isSaving ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Saving to Device...</span>
-                </>
-              ) : (
-                <>
-                  <Download className="w-4 h-4" />
-                  <span>Save File to Device</span>
-                </>
-              )}
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={handleShare}
+                className="px-4 py-2.5 rounded-xl border border-border/80 bg-background/60 hover:bg-muted/60 text-foreground font-medium text-xs sm:text-sm flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95 shadow-sm"
+                title="Share or copy download link"
+              >
+                {shareCopied ? (
+                  <>
+                    <Check className="w-4 h-4 text-emerald-400" />
+                    <span className="text-emerald-400 font-semibold">Link Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Share2 className="w-4 h-4 text-primary" />
+                    <span>Share</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSaveToBrowser}
+                disabled={isSaving}
+                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-sm shadow-lg shadow-emerald-500/25 flex items-center gap-2 transition-all hover:scale-105 active:scale-95 disabled:opacity-75 disabled:cursor-not-allowed"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Saving to Device...</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4" />
+                    <span>Save File to Device</span>
+                  </>
+                )}
+              </button>
+            </>
           )}
         </div>
       </div>
