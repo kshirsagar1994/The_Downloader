@@ -129,11 +129,9 @@ class YtDlpService:
                         fb_opts["extractor_args"]["youtube"] = {}
 
                     fb_opts["extractor_args"]["youtube"]["player_client"] = client_chain
-
-                    if settings.resolved_po_token_provider_url:
-                        fb_opts["extractor_args"]["youtubepot-bgutilhttp"] = {
-                            "base_url": [settings.resolved_po_token_provider_url],
-                        }
+                    # Strip POT provider in fallback so mobile clients extract directly without provider timeouts
+                    fb_opts["extractor_args"].pop("youtubepot-bgutilhttp", None)
+                    fb_opts["extractor_args"].pop("youtubepot-bgutilscript", None)
 
                     try:
                         with yt_dlp.YoutubeDL(fb_opts) as ydl_fb:

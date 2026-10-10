@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     APP_ENV: str = "development"
     DEBUG: bool = True
     APP_TITLE: str = "Universal Media Downloader API"
-    APP_VERSION: str = "1.0.2"
+    APP_VERSION: str = "1.0.3"
 
     # Server
     API_HOST: str = "0.0.0.0"
