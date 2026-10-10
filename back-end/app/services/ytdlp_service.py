@@ -71,12 +71,12 @@ class YtDlpService:
             logger.error(f"yt-dlp DownloadError: {exc}")
 
             # Photo post fallback for Instagram, Twitter, Pinterest (when no video formats exist)
-            if "no video formats found" in err_msg or "instagram" in validated_url.lower() or "pinterest" in validated_url.lower():
+            if any(k in err_msg for k in ("no video formats found", "no video could be found", "sent an empty media response", "only works when logged-in")) or any(p in validated_url.lower() for p in ("instagram", "pinterest", "twitter.com", "x.com")):
                 try:
                     social_result = await cls._extract_social_media_images(validated_url)
                     if social_result:
                         return social_result
-                except Exception as img_exc:
+                except Exception as img_exc:  # noqa: BLE001
                     logger.warning(f"Social image extraction fallback failed: {img_exc}")
 
             # Centralized deterministic error classification
@@ -94,19 +94,33 @@ class YtDlpService:
     @classmethod
     def _run_extraction(cls, url: str, options: dict[str, Any]) -> dict[str, Any]:
         """Synchronous yt-dlp execution helper with client fallback and transient retries."""
-        # Primary attempt
         try:
             with yt_dlp.YoutubeDL(options) as ydl:
                 return ydl.extract_info(url, download=False)
         except yt_dlp.utils.DownloadError as primary_err:
             err_str = str(primary_err).lower()
-            # If YouTube explicitly challenges with bot verification or login, do NOT hammer YouTube with 9 fallback requests
+
+            # If YouTube explicitly challenges with bot verification or login, do NOT hammer YouTube with fallback requests
             if any(k in err_str for k in ("confirm you're not a bot", "confirm you’re not a bot", "bot verification", "sign in", "login required")):
                 raise primary_err
 
+
+            # Vimeo fallback: public video pages on vimeo.com can prompt for login while player.vimeo.com works
+            if "vimeo.com" in url.lower() and "player.vimeo.com" not in url.lower():
+                vimeo_match = re.search(r"vimeo\.com/(?:video/)?(\d+)", url)
+                if vimeo_match:
+                    embed_url = f"https://player.vimeo.com/video/{vimeo_match.group(1)}"
+                    try:
+                        with yt_dlp.YoutubeDL(options) as ydl_vimeo:
+                            vimeo_info = ydl_vimeo.extract_info(embed_url, download=False)
+                            if vimeo_info:
+                                return vimeo_info
+                    except Exception as fb_exc:  # noqa: BLE001
+                        logger.debug(f"Vimeo player embed fallback failed: {fb_exc}")
+
+            # YouTube fallback player clients
             if "youtube" in url.lower() or "youtu.be" in url.lower():
                 fallbacks = get_youtube_fallback_clients()
-                # Limit retries to at most 2 alternative clients to prevent flooding
                 for client_chain in fallbacks[:2]:
                     fb_opts = copy.deepcopy(options)
                     if "extractor_args" not in fb_opts or not isinstance(fb_opts["extractor_args"], dict):
@@ -116,10 +130,9 @@ class YtDlpService:
 
                     fb_opts["extractor_args"]["youtube"]["player_client"] = client_chain
 
-                    # Preserve PO Token Provider in fallbacks if configured
                     if settings.resolved_po_token_provider_url:
                         fb_opts["extractor_args"]["youtubepot-bgutilhttp"] = {
-                            "base_url": settings.resolved_po_token_provider_url,
+                            "base_url": [settings.resolved_po_token_provider_url],
                         }
 
                     try:
@@ -127,8 +140,9 @@ class YtDlpService:
                             res = ydl_fb.extract_info(url, download=False)
                             if res:
                                 return res
-                    except Exception:
+                    except Exception:  # noqa: BLE001, S112
                         continue
+
             raise primary_err
 
     @classmethod

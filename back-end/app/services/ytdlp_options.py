@@ -38,14 +38,14 @@ def build_base_ydl_opts(overrides: dict[str, Any] | None = None) -> dict[str, An
     provider_url = settings.resolved_po_token_provider_url
     if provider_url:
         extractor_args["youtubepot-bgutilhttp"] = {
-            "base_url": provider_url,
+            "base_url": [provider_url],
         }
 
     # Configure bgutil script-mode PO token generation (local Node.js execution)
     bgutil_home = _resolve_bgutil_script_home()
     if bgutil_home:
         extractor_args["youtubepot-bgutilscript"] = {
-            "server_home": bgutil_home,
+            "server_home": [bgutil_home],
         }
 
     import shutil
@@ -131,11 +131,12 @@ def get_youtube_fallback_clients() -> list[list[str]]:
     unsupported GVS PO tokens.
     """
     return [
-        ["visionos"],
         ["android"],
-        ["visionos", "android"],
+        ["visionos"],
+        ["tv_downgraded", "android"],
         ["ios"],
         ["tv_embedded"],
+        ["web_embedded"],
         ["mweb"],
         ["web"],
     ]

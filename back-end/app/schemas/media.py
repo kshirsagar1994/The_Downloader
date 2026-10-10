@@ -14,7 +14,7 @@ class MediaFormatOption(BaseModel):
     is_best: bool = False
     vcodec: str | None = None
     acodec: str | None = None
-    fps: int | None = None
+    fps: int | float | None = None
 
 
 class MediaImageItem(BaseModel):

@@ -146,8 +146,8 @@ class Settings(BaseSettings):
             or os.path.isdir("/opt/bgutil-pot/server")
             or self.resolved_cookiefile
         ):
-            return ["web", "mweb", "android", "visionos"]
-        return ["visionos", "android"]
+            return ["android", "visionos", "web", "mweb"]
+        return ["android", "visionos"]
 
     @property
     def resolved_cookiefile(self) -> str | None:

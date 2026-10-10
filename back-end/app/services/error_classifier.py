@@ -80,21 +80,34 @@ def classify_ytdlp_error(exc: Exception, url: str) -> DownloaderException:
         )
 
     # 3. Authentication & Account Access Required
-    if any(k in err_msg for k in ("sign in", "login", "members only", "premium", "join this channel", "account required")):
+    if any(k in err_msg for k in (
+        "sign in", "login", "logged-in", "members only", "premium", "join this channel",
+        "account required", "the web client only works when logged-in",
+        "empty media response", "api is not granting access",
+    )):
+        platform_name = "This media"
+        if "instagram" in err_msg or "instagram" in url.lower():
+            platform_name = "Instagram"
+        elif "vimeo" in err_msg or "vimeo" in url.lower():
+            platform_name = "Vimeo"
+        elif "youtube" in err_msg or "youtube" in url.lower():
+            platform_name = "YouTube"
+
         return AuthenticationRequiredError(
-            message="This media requires a signed-in account or channel membership to access.",
-            user_action="Configure authorized cookies with account access to view this content.",
+            message=f"{platform_name} requires a signed-in account or authorized cookies to access.",
+            user_action="Configure authorized cookies with account access or check if the post is public.",
             details=err_str,
         )
 
-    if any(k in err_msg for k in ("age", "confirm your age")):
+    import re
+    if any(k in err_msg for k in ("confirm your age", "sign in to confirm your age", "age-restricted", "age restricted")) or re.search(r"\bage\b", err_msg):
         return AuthenticationRequiredError(
             message="This content is age-restricted and requires account authentication.",
             user_action="Configure authorized cookies for an age-verified account.",
             details=err_str,
         )
 
-    if "private" in err_msg:
+    if "private" in err_msg or "account is private" in err_msg:
         return AuthenticationRequiredError(
             message="This media is private and cannot be accessed without account authorization.",
             user_action="Verify permissions or supply authorized cookies.",
@@ -109,15 +122,37 @@ def classify_ytdlp_error(exc: Exception, url: str) -> DownloaderException:
             details=err_str,
         )
 
-    # 5. Media Not Found / Unavailable
-    if any(k in err_msg for k in ("not found", "404", "unavailable", "does not exist", "video has been removed", "deleted", "copyright")):
+    # 5. Media Not Found / Unavailable / Removed / Suspended
+    if any(k in err_msg for k in (
+        "not found", "404", "unavailable", "does not exist", "video has been removed",
+        "deleted", "copyright", "suspended account", "this tweet is from a suspended account",
+        "tweet has been deleted",
+    )):
         return VideoUnavailableError(
             message="The requested media was not found or is no longer available.",
             user_action="Verify that the URL is correct, public, and not region-blocked.",
             details=err_str,
         )
 
-    # 6. Rate Limits & 429
+    # 6. No Supported Formats / No Media In Post
+    if any(k in err_msg for k in (
+        "no video could be found", "no video formats found", "no media found", "no formats found"
+    )):
+        return ExtractorOrVersionError(
+            message="No downloadable video or media stream was found for this link.",
+            user_action="Verify that the post or tweet contains an attached video or media file.",
+            details=err_str,
+        )
+
+    # 7. Host 403 Forbidden
+    if any(k in err_msg for k in ("http error 403: forbidden", "403: forbidden")):
+        return VideoUnavailableError(
+            message="The host server rejected access to this media stream (HTTP 403 Forbidden).",
+            user_action="The media may be expired, geo-restricted, or require direct browser access.",
+            details=err_str,
+        )
+
+    # 8. Rate Limits & 429
     if any(k in err_msg for k in ("429", "too many requests", "rate limit")):
         return RateLimitedError(
             message="The media source or server has rate-limited requests.",
@@ -125,7 +160,7 @@ def classify_ytdlp_error(exc: Exception, url: str) -> DownloaderException:
             details=err_str,
         )
 
-    # 7. Network & Connection Timeouts
+    # 9. Network & Connection Timeouts
     if any(k in err_msg for k in ("timed out", "connection refused", "network is unreachable", "connection reset", "socket timeout", "temporary failure in name resolution")):
         return NetworkTimeoutError(
             message="A temporary network error occurred while connecting to the source.",
@@ -133,7 +168,7 @@ def classify_ytdlp_error(exc: Exception, url: str) -> DownloaderException:
             details=err_str,
         )
 
-    # 8. Unsupported URL or Extractor/Parser issues
+    # 10. Unsupported URL or Extractor/Parser issues
     if any(k in err_msg for k in ("unsupported url", "no suitable extractor")):
         return ExtractorOrVersionError(
             message="That URL is not currently supported.",

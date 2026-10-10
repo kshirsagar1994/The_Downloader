@@ -63,7 +63,8 @@ class FormatService:
             width = f.get("width")
             ext = f.get("ext", "mp4")
             filesize = f.get("filesize") or f.get("filesize_approx")
-            fps = f.get("fps")
+            raw_fps = f.get("fps")
+            fps = int(round(raw_fps)) if isinstance(raw_fps, (int, float)) and raw_fps > 0 else None
 
             has_video = vcodec not in (None, "none")
             has_audio = acodec not in (None, "none")
