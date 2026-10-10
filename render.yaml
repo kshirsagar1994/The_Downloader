@@ -42,7 +42,7 @@ services:
       - key: YT_DLP_UPDATE_CHANNEL
         value: "stable" # Optional: yt-dlp release channel
       - key: YOUTUBE_CLIENTS
-        value: "visionos,web,mweb,ios,tv_embedded" # Optional: Ordered player client list
+        value: "visionos,android" # Optional: Ordered player client list optimized for cloud environments without PO tokens
 
   # ---------------------------------------------------------------------------
   # 2. Frontend Web Application (Next.js 15 App Router)

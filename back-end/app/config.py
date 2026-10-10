@@ -93,7 +93,7 @@ class Settings(BaseSettings):
             if not parsed.hostname:
                 return None
             return raw_url
-        except Exception:
+        except (ValueError, TypeError, AttributeError):
             return None
 
     @property
@@ -116,8 +116,8 @@ class Settings(BaseSettings):
             parsed = urlparse(candidate)
             if parsed.scheme.lower() in ("http", "https", "socks5", "socks5h"):
                 return candidate
-        except Exception:
-            pass
+        except (ValueError, TypeError, AttributeError):
+            return None
         return None
 
     @property
@@ -126,8 +126,8 @@ class Settings(BaseSettings):
             clients = [c.strip() for c in self.YOUTUBE_CLIENTS.split(",") if c.strip()]
             if clients:
                 return clients
-        # Primary default clients optimized for cloud & local compatibility
-        return ["visionos", "web", "mweb", "ios", "tv_embedded"]
+        # Primary default clients optimized for cloud & local compatibility without triggering web bot challenges
+        return ["visionos", "android"]
 
     @property
     def resolved_cookiefile(self) -> str | None:
@@ -151,10 +151,11 @@ class Settings(BaseSettings):
             # Attempt base64 decode if applicable
             cookie_text: str
             import base64
+            import binascii
             try:
                 decoded_bytes = base64.b64decode(raw_content, validate=True)
                 cookie_text = decoded_bytes.decode("utf-8")
-            except Exception:
+            except (binascii.Error, ValueError, UnicodeDecodeError):
                 cookie_text = raw_content
 
             # Write to access-restricted temporary cookie file

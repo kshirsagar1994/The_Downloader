@@ -10,7 +10,7 @@ def build_base_ydl_opts(overrides: dict[str, Any] | None = None) -> dict[str, An
     """
     Builds a secure, optimized base dictionary of yt-dlp options.
     Automatically configures:
-    1. YouTube player clients (visionos, web, mweb, ios, tv_embedded)
+    1. YouTube player clients (visionos, android)
     2. Dynamic BgUtils PO Token Provider (youtubepot-bgutilhttp:base_url) or direct PO tokens
     3. Cookiefile if configured
     4. HTTP/HTTPS/SOCKS Proxy if configured
@@ -89,16 +89,15 @@ def build_base_ydl_opts(overrides: dict[str, Any] | None = None) -> dict[str, An
 def get_youtube_fallback_clients() -> list[list[str]]:
     """
     Returns the ordered list of player client fallback combinations
-    to attempt if extraction fails.
+    to attempt if extraction fails. Prioritizes clients that do not require
+    unsupported GVS PO tokens.
     """
     return [
         ["visionos"],
+        ["android"],
+        ["visionos", "android"],
         ["ios"],
         ["tv_embedded"],
-        ["android_creator"],
         ["mweb"],
-        ["web_creator"],
-        ["tv_downgraded"],
-        ["android"],
         ["web"],
     ]
