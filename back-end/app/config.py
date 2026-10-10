@@ -56,6 +56,8 @@ class Settings(BaseSettings):
     COOKIES_FILE: str | None = None
     YOUTUBE_CLIENTS: str | None = None
     YT_DLP_UPDATE_CHANNEL: str = "stable"
+    # Path to bgutil-ytdlp-pot-provider server directory for script-mode PO token generation
+    BGUTIL_SCRIPT_HOME: str | None = None
 
     # Proxy Configuration (Residential / Datacenter Bypass)
     YOUTUBE_PROXY_URL: str | None = None
@@ -81,10 +83,19 @@ class Settings(BaseSettings):
         """
         Validates and returns the PO Token Provider URL.
         Prevents SSRF by enforcing valid http/https schemes and valid hostnames.
+        Supports hostport inputs from cloud orchestrators (e.g. Render 'fromService: hostport').
+        Auto-detects container daemon at http://127.0.0.1:4416 if /opt/bgutil-pot/server is present.
         """
-        if not self.PO_TOKEN_PROVIDER_URL or not self.PO_TOKEN_PROVIDER_URL.strip():
+        candidate = self.PO_TOKEN_PROVIDER_URL
+        if not candidate or not candidate.strip():
+            # If internal container background provider exists, auto-default to it
+            import os
+            if os.path.isdir("/opt/bgutil-pot/server"):
+                return "http://127.0.0.1:4416"
             return None
-        raw_url = self.PO_TOKEN_PROVIDER_URL.strip().rstrip("/")
+        raw_url = candidate.strip().rstrip("/")
+        if "://" not in raw_url:
+            raw_url = f"http://{raw_url}"
         from urllib.parse import urlparse
         try:
             parsed = urlparse(raw_url)
@@ -126,7 +137,16 @@ class Settings(BaseSettings):
             clients = [c.strip() for c in self.YOUTUBE_CLIENTS.split(",") if c.strip()]
             if clients:
                 return clients
-        # Primary default clients optimized for cloud & local compatibility without triggering web bot challenges
+        # When a PO Token Provider is active (URL, script mode, or Docker daemon),
+        # web and mweb clients leverage generated BotGuard tokens.
+        import os
+        if (
+            self.resolved_po_token_provider_url
+            or self.BGUTIL_SCRIPT_HOME
+            or os.path.isdir("/opt/bgutil-pot/server")
+            or self.resolved_cookiefile
+        ):
+            return ["web", "mweb", "android", "visionos"]
         return ["visionos", "android"]
 
     @property

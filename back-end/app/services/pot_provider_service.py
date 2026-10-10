@@ -53,7 +53,7 @@ class POTProviderService:
                     try:
                         data = resp.json()
                         cls._last_version = str(data.get("version", "ok"))
-                    except Exception:
+                    except (ValueError, TypeError, KeyError):
                         cls._last_version = "ok"
 
                     logger.debug("[YT] PO Token Provider is healthy")
@@ -72,7 +72,7 @@ class POTProviderService:
                         "available": False,
                         "details": f"Provider returned HTTP {resp.status_code}",
                     }
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             cls._last_status = False
             cls._last_check_time = now
             logger.warning(f"[YT] Could not connect to PO Token Provider: {exc}")

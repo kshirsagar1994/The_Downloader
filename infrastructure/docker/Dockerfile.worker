@@ -1,10 +1,16 @@
 FROM python:3.12-slim-bookworm
 
-# Install ffmpeg, ffprobe, and nodejs for yt-dlp JavaScript challenge handling
+# Install ffmpeg, ffprobe, and dependencies for yt-dlp JavaScript challenge handling
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     curl \
-    nodejs \
+    ca-certificates \
+    gnupg \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js 22.x
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

@@ -1,4 +1,5 @@
 import copy
+import os
 from typing import Any
 
 from app.config import get_settings
@@ -10,8 +11,8 @@ def build_base_ydl_opts(overrides: dict[str, Any] | None = None) -> dict[str, An
     """
     Builds a secure, optimized base dictionary of yt-dlp options.
     Automatically configures:
-    1. YouTube player clients (visionos, android)
-    2. Dynamic BgUtils PO Token Provider (youtubepot-bgutilhttp:base_url) or direct PO tokens
+    1. YouTube player clients (visionos, android, web when PO token provider available)
+    2. Dynamic BgUtils PO Token Provider (HTTP server or local script mode)
     3. Cookiefile if configured
     4. HTTP/HTTPS/SOCKS Proxy if configured
     5. Timeouts, geo-bypass, safety limits
@@ -33,11 +34,18 @@ def build_base_ydl_opts(overrides: dict[str, Any] | None = None) -> dict[str, An
         "youtube": youtube_args,
     }
 
-    # Add PO Token Provider configuration if URL is configured
+    # Add PO Token Provider configuration if URL is configured (HTTP server mode)
     provider_url = settings.resolved_po_token_provider_url
     if provider_url:
         extractor_args["youtubepot-bgutilhttp"] = {
             "base_url": provider_url,
+        }
+
+    # Configure bgutil script-mode PO token generation (local Node.js execution)
+    bgutil_home = _resolve_bgutil_script_home()
+    if bgutil_home:
+        extractor_args["youtubepot-bgutilscript"] = {
+            "server_home": bgutil_home,
         }
 
     import shutil
@@ -84,6 +92,36 @@ def build_base_ydl_opts(overrides: dict[str, Any] | None = None) -> dict[str, An
                 opts[k] = v
 
     return opts
+
+
+def _resolve_bgutil_script_home() -> str | None:
+    """
+    Resolves the bgutil-ytdlp-pot-provider server home directory.
+    Checks in order:
+    1. BGUTIL_SCRIPT_HOME environment/config setting
+    2. Default Docker build path /opt/bgutil-pot/server
+    3. Home directory ~/bgutil-ytdlp-pot-provider/server
+    Returns None if no valid installation is found.
+    """
+    # 1. Explicit configuration
+    if settings.BGUTIL_SCRIPT_HOME and settings.BGUTIL_SCRIPT_HOME.strip():
+        candidate = settings.BGUTIL_SCRIPT_HOME.strip()
+        if os.path.isdir(candidate):
+            return candidate
+
+    # 2. Default Docker build path (set in Dockerfile.api)
+    docker_path = "/opt/bgutil-pot/server"
+    if os.path.isdir(docker_path):
+        return docker_path
+
+    # 3. Home directory fallback
+    home = os.environ.get("HOME") or os.environ.get("USERPROFILE")
+    if home:
+        home_path = os.path.join(home, "bgutil-ytdlp-pot-provider", "server")
+        if os.path.isdir(home_path):
+            return home_path
+
+    return None
 
 
 def get_youtube_fallback_clients() -> list[list[str]]:
