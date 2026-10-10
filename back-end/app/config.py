@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     APP_ENV: str = "development"
     DEBUG: bool = True
     APP_TITLE: str = "Universal Media Downloader API"
-    APP_VERSION: str = "1.0.3"
+    APP_VERSION: str = "1.0.4"
 
     # Server
     API_HOST: str = "0.0.0.0"
@@ -144,15 +144,13 @@ class Settings(BaseSettings):
         if self.resolved_cookiefile:
             return raw_clients
 
-        # On cloud servers without cookies, always prioritize bot-challenge-free clients
-        # (android, visionos, ios, tv_downgraded) ahead of web/mweb
+        # On cloud servers without cookies, strictly use bot-challenge-free clients
+        # (android, visionos) to completely eliminate web BotGuard challenges
         bot_free = [c for c in raw_clients if c in ("android", "visionos", "ios", "tv_downgraded")]
-        other = [c for c in raw_clients if c not in ("android", "visionos", "ios", "tv_downgraded")]
-
         if not bot_free:
             bot_free = ["android", "visionos"]
 
-        return bot_free + other
+        return bot_free
 
     @property
     def resolved_cookiefile(self) -> str | None:
