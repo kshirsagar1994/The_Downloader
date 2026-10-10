@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     APP_ENV: str = "development"
     DEBUG: bool = True
     APP_TITLE: str = "Universal Media Downloader API"
-    APP_VERSION: str = "1.0.6"
+    APP_VERSION: str = "1.0.7"
 
     # Server
     API_HOST: str = "0.0.0.0"
@@ -138,22 +138,19 @@ class Settings(BaseSettings):
             raw_clients = [c.strip() for c in self.YOUTUBE_CLIENTS.split(",") if c.strip()]
 
         if not raw_clients:
-            raw_clients = ["web", "mweb", "android", "visionos"]
+            raw_clients = ["visionos", "android", "web", "mweb"]
 
-        # If user has configured authenticated cookies or PO Token Provider is active,
-        # enable web and mweb clients with PO token attestation support
-        if self.resolved_cookiefile or self.resolved_po_token_provider_url:
-            if not any(c in raw_clients for c in ("web", "mweb")):
-                return ["web", "mweb"] + raw_clients
-            return raw_clients
+        # Ensure visionos and android are available as high-reliability endpoints
+        ordered_clients: list[str] = []
+        for c in raw_clients:
+            if c not in ordered_clients:
+                ordered_clients.append(c)
 
-        # On cloud servers without cookies and without POT provider,
-        # fallback strictly to mobile clients
-        bot_free = [c for c in raw_clients if c in ("android", "visionos", "ios", "tv_downgraded")]
-        if not bot_free:
-            bot_free = ["android", "visionos"]
+        for fallback in ("visionos", "android"):
+            if fallback not in ordered_clients:
+                ordered_clients.append(fallback)
 
-        return bot_free
+        return ordered_clients
 
     @property
     def resolved_cookiefile(self) -> str | None:

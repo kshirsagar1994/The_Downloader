@@ -103,8 +103,6 @@ class YtDlpService:
             # If YouTube explicitly challenges with bot verification or login, do NOT hammer YouTube with fallback requests
             if any(k in err_str for k in ("confirm you're not a bot", "confirm you’re not a bot", "bot verification", "sign in", "login required")):
                 raise primary_err
-
-
             # Vimeo fallback: public video pages on vimeo.com can prompt for login while player.vimeo.com works
             if "vimeo.com" in url.lower() and "player.vimeo.com" not in url.lower():
                 vimeo_match = re.search(r"vimeo\.com/(?:video/)?(\d+)", url)
@@ -121,7 +119,7 @@ class YtDlpService:
             # YouTube fallback player clients
             if "youtube" in url.lower() or "youtu.be" in url.lower():
                 fallbacks = get_youtube_fallback_clients()
-                for client_chain in fallbacks[:2]:
+                for client_chain in fallbacks[:3]:
                     fb_opts = copy.deepcopy(options)
                     if "extractor_args" not in fb_opts or not isinstance(fb_opts["extractor_args"], dict):
                         fb_opts["extractor_args"] = {}

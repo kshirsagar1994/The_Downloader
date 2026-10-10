@@ -61,7 +61,7 @@ services:
       - key: YT_DLP_UPDATE_CHANNEL
         value: "stable" # Optional: yt-dlp release channel
       - key: YOUTUBE_CLIENTS
-        value: "web,mweb,android" # Client order: web/mweb with PO token attestation + mobile fallback
+        value: "visionos,android,web,mweb" # Client order: visionos/android first for bot-free cloud extraction
 
   # ---------------------------------------------------------------------------
   # 3. Frontend Web Application (Next.js 15 App Router)

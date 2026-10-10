@@ -21,11 +21,6 @@ def build_base_ydl_opts(overrides: dict[str, Any] | None = None) -> dict[str, An
         "player_client": settings.resolved_youtube_clients,
     }
 
-    # Only skip webpage if NO cookies and NO PO Token Provider
-    # (BgUtil HTTP provider requires the webpage to extract BotGuard challenges)
-    if not settings.resolved_cookiefile and not settings.resolved_po_token_provider_url:
-        youtube_args["player_skip"] = ["webpage"]
-
     if settings.YOUTUBE_PO_TOKEN and settings.YOUTUBE_PO_TOKEN.strip():
         po_token_val = settings.YOUTUBE_PO_TOKEN.strip()
         if "+" not in po_token_val and "." not in po_token_val:
@@ -102,8 +97,8 @@ def get_youtube_fallback_clients() -> list[list[str]]:
     unsupported GVS PO tokens.
     """
     return [
-        ["android"],
         ["visionos"],
+        ["android"],
         ["tv_downgraded", "android"],
         ["ios"],
         ["tv_embedded"],
