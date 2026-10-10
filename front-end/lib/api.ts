@@ -73,9 +73,17 @@ async function handleResponse<T>(response: Response): Promise<T> {
   return data as T;
 }
 
-export const API_BASE_URL = (
-  process.env.NEXT_PUBLIC_API_URL || "https://the-downloader-nlb5.onrender.com"
-).replace(/\/+$/, "");
+function getApiBaseUrl(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, "");
+  }
+  if (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
+    return "http://127.0.0.1:8000";
+  }
+  return "https://the-downloader-nlb5.onrender.com";
+}
+
+export const API_BASE_URL = getApiBaseUrl();
 
 export async function extractMedia(url: string): Promise<ExtractionResult> {
   try {
