@@ -21,7 +21,9 @@ def build_base_ydl_opts(overrides: dict[str, Any] | None = None) -> dict[str, An
         "player_client": settings.resolved_youtube_clients,
     }
 
-    if not settings.resolved_cookiefile:
+    # Only skip webpage if NO cookies and NO PO Token Provider
+    # (BgUtil HTTP provider requires the webpage to extract BotGuard challenges)
+    if not settings.resolved_cookiefile and not settings.resolved_po_token_provider_url:
         youtube_args["player_skip"] = ["webpage"]
 
     if settings.YOUTUBE_PO_TOKEN and settings.YOUTUBE_PO_TOKEN.strip():
@@ -37,9 +39,9 @@ def build_base_ydl_opts(overrides: dict[str, Any] | None = None) -> dict[str, An
         "youtube": youtube_args,
     }
 
-    # Add PO Token Provider configuration if URL is configured and web client is used
+    # Add PO Token Provider configuration whenever URL is configured
     provider_url = settings.resolved_po_token_provider_url
-    if provider_url and "web" in settings.resolved_youtube_clients:
+    if provider_url:
         extractor_args["youtubepot-bgutilhttp"] = {
             "base_url": [provider_url],
         }
