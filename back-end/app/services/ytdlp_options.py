@@ -21,6 +21,9 @@ def build_base_ydl_opts(overrides: dict[str, Any] | None = None) -> dict[str, An
         "player_client": settings.resolved_youtube_clients,
     }
 
+    if not settings.resolved_cookiefile:
+        youtube_args["player_skip"] = ["webpage"]
+
     if settings.YOUTUBE_PO_TOKEN and settings.YOUTUBE_PO_TOKEN.strip():
         po_token_val = settings.YOUTUBE_PO_TOKEN.strip()
         if "+" not in po_token_val and "." not in po_token_val:
@@ -34,9 +37,9 @@ def build_base_ydl_opts(overrides: dict[str, Any] | None = None) -> dict[str, An
         "youtube": youtube_args,
     }
 
-    # Add PO Token Provider configuration if URL is configured (HTTP server mode)
+    # Add PO Token Provider configuration if URL is configured and web client is used
     provider_url = settings.resolved_po_token_provider_url
-    if provider_url:
+    if provider_url and "web" in settings.resolved_youtube_clients:
         extractor_args["youtubepot-bgutilhttp"] = {
             "base_url": [provider_url],
         }
