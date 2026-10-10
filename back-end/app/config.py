@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     APP_ENV: str = "development"
     DEBUG: bool = True
     APP_TITLE: str = "Universal Media Downloader API"
-    APP_VERSION: str = "1.0.0"
+    APP_VERSION: str = "1.0.2"
 
     # Server
     API_HOST: str = "0.0.0.0"
@@ -133,21 +133,26 @@ class Settings(BaseSettings):
 
     @property
     def resolved_youtube_clients(self) -> list[str]:
+        raw_clients: list[str] = []
         if self.YOUTUBE_CLIENTS:
-            clients = [c.strip() for c in self.YOUTUBE_CLIENTS.split(",") if c.strip()]
-            if clients:
-                return clients
-        # When a PO Token Provider is active (URL, script mode, or Docker daemon),
-        # web and mweb clients leverage generated BotGuard tokens.
-        import os
-        if (
-            self.resolved_po_token_provider_url
-            or self.BGUTIL_SCRIPT_HOME
-            or os.path.isdir("/opt/bgutil-pot/server")
-            or self.resolved_cookiefile
-        ):
-            return ["android", "visionos", "web", "mweb"]
-        return ["android", "visionos"]
+            raw_clients = [c.strip() for c in self.YOUTUBE_CLIENTS.split(",") if c.strip()]
+
+        if not raw_clients:
+            raw_clients = ["android", "visionos", "web", "mweb"]
+
+        # If user has configured authenticated cookies, keep configured client order
+        if self.resolved_cookiefile:
+            return raw_clients
+
+        # On cloud servers without cookies, always prioritize bot-challenge-free clients
+        # (android, visionos, ios, tv_downgraded) ahead of web/mweb
+        bot_free = [c for c in raw_clients if c in ("android", "visionos", "ios", "tv_downgraded")]
+        other = [c for c in raw_clients if c not in ("android", "visionos", "ios", "tv_downgraded")]
+
+        if not bot_free:
+            bot_free = ["android", "visionos"]
+
+        return bot_free + other
 
     @property
     def resolved_cookiefile(self) -> str | None:
