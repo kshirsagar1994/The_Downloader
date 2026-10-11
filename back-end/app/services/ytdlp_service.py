@@ -32,11 +32,14 @@ class YtDlpService:
         # Step 1: Pre-flight SSRF Validation
         validated_url = validate_url_ssrf(url)
 
-        ydl_opts = build_base_ydl_opts({
-            "extract_flat": False,
-            "skip_download": True,
-            "playlist_items": f"1-{settings.MAX_PLAYLIST_ITEMS}",
-        })
+        ydl_opts = build_base_ydl_opts(
+            {
+                "extract_flat": False,
+                "skip_download": True,
+                "playlist_items": f"1-{settings.MAX_PLAYLIST_ITEMS}",
+            },
+            target_url=validated_url,
+        )
 
         is_youtube = "youtube.com" in validated_url.lower() or "youtu.be" in validated_url.lower()
 

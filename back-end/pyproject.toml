@@ -19,6 +19,7 @@ dependencies = [
     "aiofiles>=24.1.0",
     "httpx>=0.28.0",
     "python-multipart>=0.0.12",
+    "curl_cffi>=0.7.0",
 ]
 
 [project.optional-dependencies]

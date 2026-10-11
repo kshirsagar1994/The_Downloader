@@ -75,7 +75,11 @@ async function handleResponse<T>(response: Response): Promise<T> {
 
 function getApiBaseUrl(): string {
   if (process.env.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, "");
+    let url = process.env.NEXT_PUBLIC_API_URL.trim().replace(/\/+$/, "");
+    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+      url = url.includes("localhost") || url.includes("127.0.0.1") ? `http://${url}` : `https://${url}`;
+    }
+    return url;
   }
   if (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
     return "http://127.0.0.1:8000";

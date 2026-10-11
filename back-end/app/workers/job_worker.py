@@ -111,8 +111,15 @@ class JobWorker:
             # Check if cancelled during download
             current_job = await queue_service.get_job_state(job_id)
             if current_job and current_job.status == "CANCELLED":
-                logger.info(f"Job {job_id} was cancelled during processing.")
+                logger.info(f"Job {job_id} was cancelled during processing; cleaning up workspace.")
+                WorkspaceManager.cleanup_workspace(job_id)
                 return
+
+            # Clean up intermediate/temp fragments in job workspace, leaving only final output
+            if output_file and output_file.exists():
+                for item in job_dir.iterdir():
+                    if item.is_file() and item.resolve() != output_file.resolve():
+                        item.unlink(missing_ok=True)
 
             # Job Completed Successfully
             file_size = output_file.stat().st_size if output_file and output_file.exists() else 0
@@ -135,9 +142,11 @@ class JobWorker:
             current_job = await queue_service.get_job_state(job_id)
             if current_job and current_job.status == "CANCELLED":
                 logger.info(f"Job {job_id} was cancelled; skipping error handler.")
+                WorkspaceManager.cleanup_workspace(job_id)
                 return
 
             logger.error(f"Job {job_id} failed with domain error: {exc.message}")
+            WorkspaceManager.cleanup_workspace(job_id)
             failed_event = JobProgressEvent(
                 job_id=job_id,
                 status="FAILED",
@@ -154,11 +163,13 @@ class JobWorker:
             current_job = await queue_service.get_job_state(job_id)
             if current_job and current_job.status == "CANCELLED":
                 logger.info(f"Job {job_id} was cancelled; skipping unexpected error handler.")
+                WorkspaceManager.cleanup_workspace(job_id)
                 return
 
             from app.services.error_classifier import classify_ytdlp_error
             classified = classify_ytdlp_error(exc, request.url)
             logger.error(f"Job {job_id} unexpected failure: {classified.message}")
+            WorkspaceManager.cleanup_workspace(job_id)
             failed_event = JobProgressEvent(
                 job_id=job_id,
                 status="FAILED",

@@ -3,9 +3,9 @@
 
 services:
   # ---------------------------------------------------------------------------
-  # 1. PO Token Provider (BgUtil HTTP server for YouTube bot bypass)
+  # 1. PO Token Provider (BgUtil HTTP server for YouTube bot bypass - Private Service)
   # ---------------------------------------------------------------------------
-  - type: web
+  - type: pserv
     name: the-downloader-pot-provider
     runtime: docker
     dockerfilePath: infrastructure/docker/Dockerfile.pot-provider
@@ -13,7 +13,6 @@ services:
     plan: starter
     region: oregon
     numInstances: 1
-    healthCheckPath: /ping
     envVars:
       - key: PORT
         value: "4416"
@@ -44,10 +43,7 @@ services:
       - key: ALLOWED_ORIGINS
         value: https://www.downloader.biz,https://downloader.biz
       - key: PO_TOKEN_PROVIDER_URL
-        fromService:
-          type: web
-          name: the-downloader-pot-provider
-          property: hostport
+        value: "http://the-downloader-pot-provider:4416" # Private network service URL, or auto-detected loopback http://127.0.0.1:4416
       - key: YOUTUBE_PO_TOKEN
         value: "" # Optional: Direct PO Token (e.g. web.player+<token>)
       - key: YOUTUBE_VISITOR_DATA
@@ -61,7 +57,7 @@ services:
       - key: YT_DLP_UPDATE_CHANNEL
         value: "stable" # Optional: yt-dlp release channel
       - key: YOUTUBE_CLIENTS
-        value: "visionos,android,web,mweb" # Client order: visionos/android first for bot-free cloud extraction
+        value: "web,mweb,tvhtml5" # Supported WEBPO clients for bgutil PO Token Provider
 
   # ---------------------------------------------------------------------------
   # 3. Frontend Web Application (Next.js 15 App Router)
@@ -73,7 +69,7 @@ services:
     region: oregon
     rootDir: front-end
     buildCommand: npm install && npm run build
-    startCommand: npm run start
+    startCommand: npx serve out -l $PORT -s
     healthCheckPath: /
     envVars:
       - key: NODE_ENV

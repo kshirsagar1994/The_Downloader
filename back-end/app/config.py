@@ -84,6 +84,7 @@ class Settings(BaseSettings):
         Validates and returns the PO Token Provider URL.
         Prevents SSRF by enforcing valid http/https schemes and valid hostnames.
         Supports hostport inputs from cloud orchestrators (e.g. Render 'fromService: hostport').
+        Intelligently handles Render edge port routing (.onrender.com -> https).
         Auto-detects container daemon at http://127.0.0.1:4416 if /opt/bgutil-pot/server is present.
         """
         candidate = self.PO_TOKEN_PROVIDER_URL
@@ -93,9 +94,23 @@ class Settings(BaseSettings):
             if os.path.isdir("/opt/bgutil-pot/server"):
                 return "http://127.0.0.1:4416"
             return None
+
         raw_url = candidate.strip().rstrip("/")
+        # Fix Render hostport edge cases:
+        # If pointing to an onrender.com host with port 4416, Render public router does not expose 4416 externally.
+        # Render web services over public internet terminate TLS on port 443 with HTTPS.
+        if ".onrender.com:4416" in raw_url.lower():
+            raw_url = raw_url.replace(":4416", "")
+            if raw_url.startswith("http://"):
+                raw_url = "https://" + raw_url[7:]
+            elif not raw_url.startswith("https://"):
+                raw_url = f"https://{raw_url}"
+        elif ".onrender.com" in raw_url.lower() and not raw_url.startswith("http"):
+            raw_url = f"https://{raw_url}"
+
         if "://" not in raw_url:
             raw_url = f"http://{raw_url}"
+
         from urllib.parse import urlparse
         try:
             parsed = urlparse(raw_url)
@@ -108,9 +123,9 @@ class Settings(BaseSettings):
             return None
 
     @property
-    def resolved_proxy(self) -> str | None:
+    def resolved_youtube_proxy(self) -> str | None:
         """
-        Resolves configured proxy with scheme validation (http, https, socks5, socks5h).
+        Resolves proxy specifically for YouTube extraction.
         Prioritizes YOUTUBE_PROXY_URL, then YOUTUBE_PROXY, HTTPS_PROXY, HTTP_PROXY.
         """
         candidate = (
@@ -119,9 +134,29 @@ class Settings(BaseSettings):
             or (self.HTTPS_PROXY and self.HTTPS_PROXY.strip())
             or (self.HTTP_PROXY and self.HTTP_PROXY.strip())
         )
+        return self._validate_proxy_url(candidate)
+
+    @property
+    def resolved_global_proxy(self) -> str | None:
+        """
+        Resolves general upstream proxy for non-YouTube platforms.
+        Does NOT leak YouTube-specific proxy credentials or routes.
+        """
+        candidate = (
+            (self.HTTPS_PROXY and self.HTTPS_PROXY.strip())
+            or (self.HTTP_PROXY and self.HTTP_PROXY.strip())
+        )
+        return self._validate_proxy_url(candidate)
+
+    @property
+    def resolved_proxy(self) -> str | None:
+        """Backward-compatible proxy alias."""
+        return self.resolved_youtube_proxy
+
+    @staticmethod
+    def _validate_proxy_url(candidate: str | None) -> str | None:
         if not candidate:
             return None
-
         from urllib.parse import urlparse
         try:
             parsed = urlparse(candidate)
@@ -133,24 +168,33 @@ class Settings(BaseSettings):
 
     @property
     def resolved_youtube_clients(self) -> list[str]:
-        raw_clients: list[str] = []
-        if self.YOUTUBE_CLIENTS:
-            raw_clients = [c.strip() for c in self.YOUTUBE_CLIENTS.split(",") if c.strip()]
+        """
+        Returns client preferences matching provider capabilities:
+        - When PO Token Provider or direct PO Token is configured, prioritizes
+          the WEBPO clients supported by BgUtil ('web', 'mweb', 'tvhtml5').
+        - When direct client mode without provider is used, prioritizes mobile endpoints ('android', 'ios', 'mweb', 'web').
+        - Always respects custom YOUTUBE_CLIENTS if explicitly defined.
+        """
+        if self.YOUTUBE_CLIENTS and self.YOUTUBE_CLIENTS.strip():
+            return [c.strip() for c in self.YOUTUBE_CLIENTS.split(",") if c.strip()]
 
-        if not raw_clients:
-            raw_clients = ["visionos", "android", "web", "mweb"]
+        has_pot = bool(self.resolved_po_token_provider_url or self.YOUTUBE_PO_TOKEN or self.resolved_cookiefile)
+        if has_pot:
+            # WEBPO clients supported by BgUtil PO Token Provider
+            return ["web", "mweb", "tvhtml5"]
+        # Direct client mode without PO Token provider
+        return ["android", "ios", "mweb", "web"]
 
-        # Ensure visionos and android are available as high-reliability endpoints
-        ordered_clients: list[str] = []
-        for c in raw_clients:
-            if c not in ordered_clients:
-                ordered_clients.append(c)
-
-        for fallback in ("visionos", "android"):
-            if fallback not in ordered_clients:
-                ordered_clients.append(fallback)
-
-        return ordered_clients
+    @property
+    def resolved_bgutil_script_home(self) -> str | None:
+        """Resolves local script directory for bgutil script-mode PO token generation."""
+        if self.BGUTIL_SCRIPT_HOME and self.BGUTIL_SCRIPT_HOME.strip():
+            p = Path(self.BGUTIL_SCRIPT_HOME).resolve()
+            if p.exists() and p.is_dir():
+                return str(p)
+        if Path("/opt/bgutil-pot/server").is_dir():
+            return "/opt/bgutil-pot/server"
+        return None
 
     @property
     def resolved_cookiefile(self) -> str | None:

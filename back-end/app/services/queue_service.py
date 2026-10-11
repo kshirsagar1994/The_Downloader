@@ -16,19 +16,32 @@ class QueueService:
 
     def __init__(self):
         self._redis: aioredis.Redis | None = None
+        self._redis_last_check: float = 0
+        self._redis_available: bool = False
         self._memory_jobs: dict[str, JobProgressEvent] = {}
         self._memory_subscribers: dict[str, list[asyncio.Queue]] = {}
 
     async def get_redis(self) -> aioredis.Redis | None:
-        if self._redis is None:
-            try:
-                r = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
-                await asyncio.wait_for(r.ping(), timeout=2.0)
-                self._redis = r
-                logger.info(f"Connected to Redis Queue at {settings.REDIS_URL}")
-            except (TimeoutError, aioredis.RedisError, OSError) as exc:
-                logger.warning(f"Redis unavailable ({exc}). Using in-memory job queue and pubsub.")
-                self._redis = None
+        if self._redis is not None:
+            return self._redis
+
+        import time
+        now = time.time()
+        # Cooldown: if Redis previously failed, avoid repeated 2-second blocking timeouts
+        if not self._redis_available and (now - self._redis_last_check < 30.0):
+            return None
+
+        self._redis_last_check = now
+        try:
+            r = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+            await asyncio.wait_for(r.ping(), timeout=1.0)
+            self._redis = r
+            self._redis_available = True
+            logger.info(f"Connected to Redis Queue at {settings.REDIS_URL}")
+        except (TimeoutError, aioredis.RedisError, OSError) as exc:
+            self._redis = None
+            self._redis_available = False
+            logger.debug(f"Redis unavailable ({exc}). Using in-memory job queue and pubsub.")
         return self._redis
 
     async def save_job_state(self, job_event: JobProgressEvent) -> None:

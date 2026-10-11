@@ -1,5 +1,4 @@
 import copy
-import os
 from typing import Any
 
 from app.config import get_settings
@@ -7,40 +6,51 @@ from app.config import get_settings
 settings = get_settings()
 
 
-def build_base_ydl_opts(overrides: dict[str, Any] | None = None) -> dict[str, Any]:
+def build_base_ydl_opts(
+    overrides: dict[str, Any] | None = None,
+    target_url: str | None = None,
+) -> dict[str, Any]:
     """
     Builds a secure, optimized base dictionary of yt-dlp options.
     Automatically configures:
-    1. YouTube player clients (visionos, android, web when PO token provider available)
+    1. YouTube player clients matching provider capabilities
     2. Dynamic BgUtils PO Token Provider (HTTP server or local script mode)
     3. Cookiefile if configured
-    4. HTTP/HTTPS/SOCKS Proxy if configured
+    4. Isolated HTTP/HTTPS/SOCKS Proxy (YouTube proxy restricted to YouTube)
     5. Timeouts, geo-bypass, safety limits
     """
-    youtube_args: dict[str, Any] = {
-        "player_client": settings.resolved_youtube_clients,
-    }
+    is_youtube = bool(
+        target_url and ("youtube.com" in target_url.lower() or "youtu.be" in target_url.lower())
+    ) or (target_url is None)
 
-    if settings.YOUTUBE_PO_TOKEN and settings.YOUTUBE_PO_TOKEN.strip():
-        po_token_val = settings.YOUTUBE_PO_TOKEN.strip()
-        if "+" not in po_token_val and "." not in po_token_val:
-            po_token_val = f"web.player+{po_token_val}"
-        youtube_args["po_token"] = [po_token_val]
+    extractor_args: dict[str, dict[str, Any]] = {}
 
-    if settings.YOUTUBE_VISITOR_DATA and settings.YOUTUBE_VISITOR_DATA.strip():
-        youtube_args["visitor_data"] = [settings.YOUTUBE_VISITOR_DATA.strip()]
-
-    extractor_args: dict[str, dict[str, Any]] = {
-        "youtube": youtube_args,
-    }
-
-    # Add PO Token Provider configuration whenever URL is configured
-    provider_url = settings.resolved_po_token_provider_url
-    if provider_url:
-        extractor_args["youtubepot-bgutilhttp"] = {
-            "base_url": [provider_url],
+    if is_youtube:
+        youtube_args: dict[str, Any] = {
+            "player_client": settings.resolved_youtube_clients,
         }
 
+        if settings.YOUTUBE_PO_TOKEN and settings.YOUTUBE_PO_TOKEN.strip():
+            po_token_val = settings.YOUTUBE_PO_TOKEN.strip()
+            if "+" not in po_token_val and "." not in po_token_val:
+                po_token_val = f"web.player+{po_token_val}"
+            youtube_args["po_token"] = [po_token_val]
+
+        if settings.YOUTUBE_VISITOR_DATA and settings.YOUTUBE_VISITOR_DATA.strip():
+            youtube_args["visitor_data"] = [settings.YOUTUBE_VISITOR_DATA.strip()]
+
+        extractor_args["youtube"] = youtube_args
+
+        # Configure PO Token Provider (HTTP mode prioritized, script mode fallback)
+        provider_url = settings.resolved_po_token_provider_url
+        if provider_url:
+            extractor_args["youtubepot-bgutilhttp"] = {
+                "base_url": [provider_url],
+            }
+        elif settings.resolved_bgutil_script_home:
+            extractor_args["youtubepot-bgutilscript"] = {
+                "server_home": [settings.resolved_bgutil_script_home],
+            }
 
     import shutil
 
@@ -68,7 +78,13 @@ def build_base_ydl_opts(overrides: dict[str, Any] | None = None) -> dict[str, An
     if settings.resolved_cookiefile:
         opts["cookiefile"] = settings.resolved_cookiefile
 
-    if settings.resolved_proxy:
+    # Isolated Proxy Handling: Only assign YouTube proxy to YouTube requests
+    if target_url:
+        if is_youtube and settings.resolved_youtube_proxy:
+            opts["proxy"] = settings.resolved_youtube_proxy
+        elif not is_youtube and settings.resolved_global_proxy:
+            opts["proxy"] = settings.resolved_global_proxy
+    elif settings.resolved_proxy:
         opts["proxy"] = settings.resolved_proxy
 
     if overrides:
@@ -88,21 +104,25 @@ def build_base_ydl_opts(overrides: dict[str, Any] | None = None) -> dict[str, An
     return opts
 
 
-
-
 def get_youtube_fallback_clients() -> list[list[str]]:
     """
     Returns the ordered list of player client fallback combinations
-    to attempt if extraction fails. Prioritizes clients that do not require
-    unsupported GVS PO tokens.
+    to attempt if extraction fails. Prioritizes clients compatible with
+    active authentication / token providers.
     """
+    has_pot = bool(settings.resolved_po_token_provider_url or settings.YOUTUBE_PO_TOKEN)
+    if has_pot:
+        return [
+            ["mweb"],
+            ["tvhtml5"],
+            ["web_embedded"],
+            ["android"],
+            ["ios"],
+        ]
     return [
-        ["visionos"],
         ["android"],
-        ["tv_downgraded", "android"],
         ["ios"],
-        ["tv_embedded"],
-        ["web_embedded"],
         ["mweb"],
         ["web"],
+        ["tv_embedded"],
     ]

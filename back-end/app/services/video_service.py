@@ -91,17 +91,20 @@ class VideoService:
 
         from app.services.ytdlp_options import build_base_ydl_opts
 
-        ydl_opts = build_base_ydl_opts({
-            "format": selected_format,
-            "outtmpl": out_template,
-            "merge_output_format": "mp4",
-            "ffmpeg_location": ffmpeg_bin,
-            "progress_hooks": [_progress_hook],
-            "postprocessor_hooks": [_postprocessor_hook],
-            "max_filesize": settings.MAX_FILE_SIZE_MB * 1024 * 1024,
-            "concurrent_fragment_downloads": 4,
-            "socket_timeout": 30,
-        })
+        ydl_opts = build_base_ydl_opts(
+            {
+                "format": selected_format,
+                "outtmpl": out_template,
+                "merge_output_format": "mp4",
+                "ffmpeg_location": ffmpeg_bin,
+                "progress_hooks": [_progress_hook],
+                "postprocessor_hooks": [_postprocessor_hook],
+                "max_filesize": settings.MAX_FILE_SIZE_MB * 1024 * 1024,
+                "concurrent_fragment_downloads": 4,
+                "socket_timeout": 30,
+            },
+            target_url=validated_url,
+        )
 
         logger.info(f"Starting video download for {validated_url} (format: {selected_format}) in {job_dir.name}")
 

@@ -91,21 +91,24 @@ class AudioService:
 
         from app.services.ytdlp_options import build_base_ydl_opts
 
-        ydl_opts = build_base_ydl_opts({
-            "format": "bestaudio/best",
-            "outtmpl": out_template,
-            "ffmpeg_location": ffmpeg_bin,
-            "postprocessors": [
-                {
-                    "key": "FFmpegExtractAudio",
-                    "preferredcodec": clean_ext,
-                    "preferredquality": clean_bitrate,
-                }
-            ],
-            "progress_hooks": [_progress_hook],
-            "postprocessor_hooks": [_postprocessor_hook],
-            "socket_timeout": 30,
-        })
+        ydl_opts = build_base_ydl_opts(
+            {
+                "format": "bestaudio/best",
+                "outtmpl": out_template,
+                "ffmpeg_location": ffmpeg_bin,
+                "postprocessors": [
+                    {
+                        "key": "FFmpegExtractAudio",
+                        "preferredcodec": clean_ext,
+                        "preferredquality": clean_bitrate,
+                    }
+                ],
+                "progress_hooks": [_progress_hook],
+                "postprocessor_hooks": [_postprocessor_hook],
+                "socket_timeout": 30,
+            },
+            target_url=validated_url,
+        )
 
         logger.info(
             f"Starting audio extraction for {validated_url} ({clean_ext} @ {clean_bitrate}k) in {job_dir.name}"
