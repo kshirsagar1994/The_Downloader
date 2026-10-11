@@ -211,7 +211,8 @@ def test_network_timeout_and_limited_retries():
     assert err_timeout.status_code == 504
     assert err_timeout.retryable is True
 
-    # Ensure _run_extraction does NOT loop 9 times on bot verification
+    # Ensure _run_extraction tries fallback clients on bot verification
+    # (new behavior: try visionos/android fallbacks and direct mode before giving up)
     call_count = 0
 
     class MockYDL:
@@ -233,8 +234,9 @@ def test_network_timeout_and_limited_retries():
         with pytest.raises(yt_dlp.utils.DownloadError):
             YtDlpService._run_extraction("https://www.youtube.com/watch?v=test", {})
 
-        # Must exit immediately after primary attempt without hammering fallbacks
-        assert call_count == 1
+        # Should try: primary (2x: initial + error inspection) + 5 fallbacks + 1 direct mode = 8
+        # Primary runs twice because we re-run to inspect the error
+        assert call_count == 8, f"Expected 8 calls (primary x2 + 5 fallbacks + direct), got {call_count}"
 
 
 # =========================================================================

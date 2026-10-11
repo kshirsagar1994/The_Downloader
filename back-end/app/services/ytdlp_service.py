@@ -19,6 +19,7 @@ from app.schemas.media import ExtractionResult, MediaImageItem
 from app.security.ssrf import validate_url_ssrf
 from app.services.error_classifier import classify_ytdlp_error
 from app.services.metadata_service import MetadataService
+from app.services.pot_provider_service import POTProviderService
 from app.services.ytdlp_options import build_base_ydl_opts, get_youtube_fallback_clients
 
 settings = get_settings()
@@ -28,10 +29,33 @@ class YtDlpService:
     """Encapsulated extraction and download service wrapping the yt-dlp engine with PO Token Provider support."""
 
     @classmethod
+    async def _check_po_token_provider_health(cls) -> bool:
+        """Check if PO Token provider is healthy and can generate valid tokens."""
+        provider_url = settings.resolved_po_token_provider_url
+        if not provider_url:
+            return False
+        
+        try:
+            health = await POTProviderService.check_health(timeout=2.0)
+            return health.get("available", False)
+        except Exception:  # noqa: BLE001
+            return False
+
+    @classmethod
     async def extract_info(cls, url: str) -> ExtractionResult:
         # Step 1: Pre-flight SSRF Validation
         validated_url = validate_url_ssrf(url)
 
+        is_youtube = "youtube.com" in validated_url.lower() or "youtu.be" in validated_url.lower()
+
+        # Check PO Token provider health for YouTube URLs
+        po_provider_healthy = False
+        if is_youtube and settings.resolved_po_token_provider_url:
+            po_provider_healthy = await cls._check_po_token_provider_health()
+            if not po_provider_healthy:
+                logger.warning("[YT] PO Token provider unhealthy or unreachable, will attempt extraction without it")
+
+        # Build options - if PO Token provider is unhealthy, pass flag to skip it
         ydl_opts = build_base_ydl_opts(
             {
                 "extract_flat": False,
@@ -41,13 +65,21 @@ class YtDlpService:
             target_url=validated_url,
         )
 
-        is_youtube = "youtube.com" in validated_url.lower() or "youtu.be" in validated_url.lower()
+        # If PO Token provider is configured but unhealthy, strip it from options
+        if is_youtube and settings.resolved_po_token_provider_url and not po_provider_healthy:
+            if "extractor_args" in ydl_opts and isinstance(ydl_opts["extractor_args"], dict):
+                ydl_opts["extractor_args"].pop("youtubepot-bgutilhttp", None)
+                ydl_opts["extractor_args"].pop("youtubepot-bgutilscript", None)
+                logger.info("[YT] Stripped PO Token provider from extraction options due to health check failure")
 
         try:
             if is_youtube:
                 logger.info(f"[YT] Starting extraction for URL: {validated_url}")
                 if settings.resolved_po_token_provider_url:
-                    logger.info("[YT] PO Token provider configured")
+                    if po_provider_healthy:
+                        logger.info("[YT] PO Token provider configured and healthy")
+                    else:
+                        logger.info("[YT] PO Token provider configured but unhealthy - using direct client mode")
             else:
                 logger.info(f"Extracting metadata for URL: {validated_url}")
 
@@ -97,52 +129,114 @@ class YtDlpService:
     @classmethod
     def _run_extraction(cls, url: str, options: dict[str, Any]) -> dict[str, Any]:
         """Synchronous yt-dlp execution helper with client fallback and transient retries."""
+        is_youtube = "youtube.com" in url.lower() or "youtu.be" in url.lower()
+
+        def _extract_with_opts(opts: dict[str, Any]) -> dict[str, Any] | None:
+            """Try extraction with given options, return result or None on failure."""
+            try:
+                with yt_dlp.YoutubeDL(opts) as ydl:
+                    return ydl.extract_info(url, download=False)
+            except yt_dlp.utils.DownloadError:
+                return None
+            except Exception:  # noqa: BLE001
+                return None
+
+        # Attempt 1: Primary extraction with configured options
+        primary_result = _extract_with_opts(options)
+        if primary_result:
+            return primary_result
+
+        # If primary failed, check if it was a bot verification error
+        # We need to catch the exception to inspect it
+        primary_error = None
         try:
             with yt_dlp.YoutubeDL(options) as ydl:
-                return ydl.extract_info(url, download=False)
-        except yt_dlp.utils.DownloadError as primary_err:
-            err_str = str(primary_err).lower()
+                ydl.extract_info(url, download=False)
+        except yt_dlp.utils.DownloadError as exc:
+            primary_error = exc
+        except Exception as exc:  # noqa: BLE001
+            primary_error = exc
 
-            # If YouTube explicitly challenges with bot verification or login, do NOT hammer YouTube with fallback requests
-            if any(k in err_str for k in ("confirm you're not a bot", "confirm you’re not a bot", "bot verification", "sign in", "login required")):
-                raise primary_err
-            # Vimeo fallback: public video pages on vimeo.com can prompt for login while player.vimeo.com works
-            if "vimeo.com" in url.lower() and "player.vimeo.com" not in url.lower():
-                vimeo_match = re.search(r"vimeo\.com/(?:video/)?(\d+)", url)
-                if vimeo_match:
-                    embed_url = f"https://player.vimeo.com/video/{vimeo_match.group(1)}"
-                    try:
-                        with yt_dlp.YoutubeDL(options) as ydl_vimeo:
-                            vimeo_info = ydl_vimeo.extract_info(embed_url, download=False)
-                            if vimeo_info:
-                                return vimeo_info
-                    except Exception as fb_exc:  # noqa: BLE001
-                        logger.debug(f"Vimeo player embed fallback failed: {fb_exc}")
+        err_str = str(primary_error).lower() if primary_error else ""
 
-            # YouTube fallback player clients
-            if "youtube" in url.lower() or "youtu.be" in url.lower():
-                fallbacks = get_youtube_fallback_clients()
-                for client_chain in fallbacks[:3]:
-                    fb_opts = copy.deepcopy(options)
-                    if "extractor_args" not in fb_opts or not isinstance(fb_opts["extractor_args"], dict):
-                        fb_opts["extractor_args"] = {}
-                    if "youtube" not in fb_opts["extractor_args"] or not isinstance(fb_opts["extractor_args"]["youtube"], dict):
-                        fb_opts["extractor_args"]["youtube"] = {}
+        # Check for bot verification / sign-in challenges
+        is_bot_verification = any(k in err_str for k in (
+            "confirm you're not a bot",
+            "confirm you're not a bot",
+            "bot verification",
+            "botguard",
+            "automated queries",
+            "captcha",
+        ))
+        is_sign_in_required = any(k in err_str for k in ("sign in", "login required", "logged-in"))
 
-                    fb_opts["extractor_args"]["youtube"]["player_client"] = client_chain
-                    # Strip POT provider in fallback so mobile clients extract directly without provider timeouts
-                    fb_opts["extractor_args"].pop("youtubepot-bgutilhttp", None)
-                    fb_opts["extractor_args"].pop("youtubepot-bgutilscript", None)
+        # For bot verification, we SHOULD try fallback clients (visionos/android can bypass BotGuard)
+        # But for explicit sign-in required (private/age-restricted), don't hammer with fallbacks
+        if is_sign_in_required and not is_bot_verification:
+            if primary_error:
+                raise primary_error
+            raise yt_dlp.utils.DownloadError("Sign in required") from None
 
-                    try:
-                        with yt_dlp.YoutubeDL(fb_opts) as ydl_fb:
-                            res = ydl_fb.extract_info(url, download=False)
-                            if res:
-                                return res
-                    except Exception:  # noqa: BLE001, S112
-                        continue
+        # Vimeo fallback: public video pages on vimeo.com can prompt for login while player.vimeo.com works
+        if "vimeo.com" in url.lower() and "player.vimeo.com" not in url.lower():
+            vimeo_match = re.search(r"vimeo\.com/(?:video/)?(\d+)", url)
+            if vimeo_match:
+                embed_url = f"https://player.vimeo.com/video/{vimeo_match.group(1)}"
+                try:
+                    with yt_dlp.YoutubeDL(options) as ydl_vimeo:
+                        vimeo_info = ydl_vimeo.extract_info(embed_url, download=False)
+                        if vimeo_info:
+                            return vimeo_info
+                except Exception as fb_exc:  # noqa: BLE001
+                    logger.debug(f"Vimeo player embed fallback failed: {fb_exc}")
 
-            raise primary_err
+        # YouTube fallback player clients - try even on bot verification
+        if is_youtube:
+            fallbacks = get_youtube_fallback_clients()
+            # Try more fallback combinations on bot verification (up to 5 instead of 3)
+            max_fallbacks = 5 if is_bot_verification else 3
+
+            for client_chain in fallbacks[:max_fallbacks]:
+                fb_opts = copy.deepcopy(options)
+                if "extractor_args" not in fb_opts or not isinstance(fb_opts["extractor_args"], dict):
+                    fb_opts["extractor_args"] = {}
+                if "youtube" not in fb_opts["extractor_args"] or not isinstance(fb_opts["extractor_args"]["youtube"], dict):
+                    fb_opts["extractor_args"]["youtube"] = {}
+
+                fb_opts["extractor_args"]["youtube"]["player_client"] = client_chain
+                # Strip POT provider in fallback so mobile clients extract directly without provider timeouts
+                fb_opts["extractor_args"].pop("youtubepot-bgutilhttp", None)
+                fb_opts["extractor_args"].pop("youtubepot-bgutilscript", None)
+
+                fb_result = _extract_with_opts(fb_opts)
+                if fb_result:
+                    logger.info(f"[YT] Fallback extraction succeeded with client(s): {client_chain}")
+                    return fb_result
+
+            # Final attempt: Direct client mode (no PO Token provider, no visitor data, minimal clients)
+            # This can work when PO Token provider is configured but tokens are rejected
+            if is_bot_verification:
+                logger.info("[YT] Attempting direct client mode (no PO Token provider)...")
+                direct_opts = copy.deepcopy(options)
+                if "extractor_args" not in direct_opts or not isinstance(direct_opts["extractor_args"], dict):
+                    direct_opts["extractor_args"] = {}
+
+                # Use only the most resilient clients for direct mode
+                direct_opts["extractor_args"]["youtube"] = {
+                    "player_client": ["visionos", "android"],
+                }
+                # Completely remove PO Token provider and visitor data
+                direct_opts["extractor_args"].pop("youtubepot-bgutilhttp", None)
+                direct_opts["extractor_args"].pop("youtubepot-bgutilscript", None)
+
+                direct_result = _extract_with_opts(direct_opts)
+                if direct_result:
+                    logger.info("[YT] Direct client mode extraction succeeded")
+                    return direct_result
+
+        if primary_error:
+            raise primary_error
+        raise yt_dlp.utils.DownloadError("Extraction failed with all client strategies") from None
 
     @classmethod
     async def _extract_social_media_images(cls, url: str) -> ExtractionResult | None:

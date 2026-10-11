@@ -12,12 +12,27 @@ from app.schemas.job import JobProgressEvent
 from app.security.sanitization import sanitize_filename
 from app.security.ssrf import validate_url_ssrf
 from app.services.ffmpeg_service import FFmpegService
+from app.services.pot_provider_service import POTProviderService
+from app.services.ytdlp_options import build_base_ydl_opts
 
 settings = get_settings()
 
 
 class VideoService:
     """Handles video stream downloading, adaptive track merging, and progress tracking."""
+
+    @classmethod
+    async def _check_po_token_provider_health(cls) -> bool:
+        """Check if PO Token provider is healthy and can generate valid tokens."""
+        provider_url = settings.resolved_po_token_provider_url
+        if not provider_url:
+            return False
+
+        try:
+            health = await POTProviderService.check_health(timeout=2.0)
+            return health.get("available", False)
+        except Exception:  # noqa: BLE001
+            return False
 
     @classmethod
     async def download_video(
@@ -105,6 +120,18 @@ class VideoService:
             },
             target_url=validated_url,
         )
+
+        # Check PO Token provider health for YouTube URLs
+        is_youtube = "youtube.com" in validated_url.lower() or "youtu.be" in validated_url.lower()
+        if is_youtube and settings.resolved_po_token_provider_url:
+            po_provider_healthy = await cls._check_po_token_provider_health()
+            if not po_provider_healthy:
+                logger.warning("[YT] PO Token provider unhealthy for download, stripping from options")
+                if "extractor_args" in ydl_opts and isinstance(ydl_opts["extractor_args"], dict):
+                    ydl_opts["extractor_args"].pop("youtubepot-bgutilhttp", None)
+                    ydl_opts["extractor_args"].pop("youtubepot-bgutilscript", None)
+            else:
+                logger.info("[YT] PO Token provider healthy for download")
 
         logger.info(f"Starting video download for {validated_url} (format: {selected_format}) in {job_dir.name}")
 
