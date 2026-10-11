@@ -162,6 +162,8 @@ export function FormatSelector({ media, onSubmitJob, isSubmitting }: FormatSelec
             onSelectFormat={setSelectedVideoFormatId}
             onDownload={handleVideoDownload}
             isSubmitting={isSubmitting}
+            mediaUrl={media.url}
+            mediaTitle={media.title}
           />
         )}
 

@@ -24,6 +24,12 @@ export interface MediaFormatOption {
   vcodec?: string;
   acodec?: string;
   fps?: number;
+  // Direct streaming URLs for client-side download (bypasses server bot verification)
+  url?: string; // Progressive format: single URL with video+audio
+  video_url?: string; // Adaptive: video-only stream URL
+  audio_url?: string; // Adaptive: audio-only stream URL
+  manifest_url?: string; // HLS/DASH manifest URL
+  protocol?: string; // "http", "https", "m3u8", "dash"
 }
 
 export interface MediaImageItem {

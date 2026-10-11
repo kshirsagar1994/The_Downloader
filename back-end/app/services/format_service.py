@@ -66,6 +66,11 @@ class FormatService:
             raw_fps = f.get("fps")
             fps = int(round(raw_fps)) if isinstance(raw_fps, (int, float)) and raw_fps > 0 else None
 
+            # Direct streaming URLs for client-side download
+            direct_url = f.get("url")
+            manifest_url = f.get("manifest_url")
+            protocol = f.get("protocol")
+
             has_video = vcodec not in (None, "none")
             has_audio = acodec not in (None, "none")
 
@@ -87,6 +92,11 @@ class FormatService:
                     elif height >= 360:
                         label = "360p Medium"
 
+                    # For adaptive formats, we need separate video+audio URLs
+                    # yt-dlp provides these in the format dict
+                    video_only = has_video and not has_audio
+                    audio_only = has_audio and not has_video
+
                     video_formats.append(
                         MediaFormatOption(
                             format_id=f"bestvideo[height<={height}]+bestaudio/best[height<={height}]/{format_id}",
@@ -100,6 +110,11 @@ class FormatService:
                             vcodec=str(vcodec) if vcodec else None,
                             acodec=str(acodec) if acodec else None,
                             fps=fps,
+                            url=direct_url if not video_only else None,  # Progressive (has both)
+                            video_url=direct_url if video_only else None,  # Video-only adaptive
+                            audio_url=None,  # Will be paired with best audio
+                            manifest_url=manifest_url,
+                            protocol=protocol,
                         )
                     )
 
@@ -117,6 +132,9 @@ class FormatService:
                         has_video=False,
                         has_audio=True,
                         acodec=str(acodec) if acodec else None,
+                        url=direct_url,  # Progressive audio URL
+                        manifest_url=manifest_url,
+                        protocol=protocol,
                     )
                 )
 
@@ -133,6 +151,7 @@ class FormatService:
     @classmethod
     def _construct_single_fallback_format(cls, raw_info: dict[str, Any]) -> MediaFormatOption | None:
         ext = raw_info.get("ext", "mp4")
+        direct_url = raw_info.get("url")
         return MediaFormatOption(
             format_id="best",
             label="Direct Media Stream",
@@ -141,4 +160,5 @@ class FormatService:
             has_video=True,
             has_audio=True,
             is_best=True,
+            url=direct_url,
         )

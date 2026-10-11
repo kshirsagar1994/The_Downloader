@@ -15,6 +15,14 @@ class MediaFormatOption(BaseModel):
     vcodec: str | None = None
     acodec: str | None = None
     fps: int | float | None = None
+    # Direct streaming URLs for client-side download (bypasses server bot verification)
+    url: str | None = None
+    # For adaptive formats: separate video/audio URLs
+    video_url: str | None = None
+    audio_url: str | None = None
+    # Manifest URL for HLS/DASH
+    manifest_url: str | None = None
+    protocol: str | None = None
 
 
 class MediaImageItem(BaseModel):
