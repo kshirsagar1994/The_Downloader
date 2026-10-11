@@ -1,8 +1,8 @@
 import shutil
 import subprocess
 
-import yt_dlp.version
-from fastapi import APIRouter
+import yt_dlp
+from fastapi import APIRouter, HTTPException
 
 from app.config import get_settings
 from app.schemas.health import ComponentHealth, SystemHealthResponse, YouTubeHealthResponse
@@ -96,7 +96,7 @@ async def get_youtube_health():
     elif proxy_configured:
         details += " with proxy routing"
     else:
-        details += " in direct player client mode"
+        details += " in direct player client mode (will fail on cloud IPs)"
 
     return YouTubeHealthResponse(
         status=overall_status,
@@ -110,6 +110,87 @@ async def get_youtube_health():
         po_token_configured=po_token_configured,
         details=details,
     )
+
+
+@router.get("/youtube/cookies")
+async def get_youtube_cookie_status():
+    """
+    Validate YouTube cookies by attempting a test extraction.
+    Returns detailed status without exposing cookie values.
+    """
+    from app.services.ytdlp_options import build_base_ydl_opts
+    from app.services.ytdlp_service import YtDlpService
+
+    # Check if cookies are configured
+    if not settings.resolved_cookiefile:
+        return {
+            "status": "not_configured",
+            "cookies_configured": False,
+            "message": "No YOUTUBE_COOKIES configured. YouTube will fail on cloud hosting.",
+            "setup_url": "https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp",
+        }
+
+    # Test cookie validity with a quick extraction
+    test_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"  # Rick Astley - stable test video
+
+    try:
+        ydl_opts = build_base_ydl_opts(
+            {"extract_flat": False, "skip_download": True, "playlist_items": "1"},
+            target_url=test_url,
+        )
+
+        # Try extraction with timeout
+        import asyncio
+        try:
+            result = await asyncio.wait_for(
+                asyncio.to_thread(YtDlpService._run_extraction, test_url, ydl_opts),
+                timeout=30.0,
+            )
+
+            return {
+                "status": "valid",
+                "cookies_configured": True,
+                "message": "Cookies are valid and YouTube extraction works!",
+                "test_video": result.get("title", "Unknown"),
+                "extractor": result.get("extractor_key", "YouTube"),
+            }
+        except yt_dlp.utils.DownloadError as e:
+            err_str = str(e).lower()
+            if any(k in err_str for k in ("sign in", "confirm you're not a bot", "confirm you\u2019re not a bot", "bot verification", "botguard", "login")):
+                return {
+                    "status": "invalid",
+                    "cookies_configured": True,
+                    "message": "Cookies are configured but rejected by YouTube (expired or insufficient permissions).",
+                    "error": str(e)[:200],
+                    "action": "Re-export cookies from browser with FULL YouTube access (logged in, not incognito).",
+                }
+            elif "private" in err_str or "unavailable" in err_str:
+                # Video issue, not cookie issue
+                return {
+                    "status": "valid",
+                    "cookies_configured": True,
+                    "message": "Cookies appear valid (test video unavailable, not auth issue).",
+                    "note": "Test video may be region-restricted, but cookies are working.",
+                }
+            else:
+                return {
+                    "status": "error",
+                    "cookies_configured": True,
+                    "message": f"Extraction error: {str(e)[:200]}",
+                }
+        except asyncio.TimeoutError:
+            return {
+                "status": "timeout",
+                "cookies_configured": True,
+                "message": "Cookie validation timed out. Cookies may work but YouTube is slow.",
+            }
+
+    except Exception as e:
+        return {
+            "status": "error",
+            "cookies_configured": True,
+            "message": f"Cookie validation failed: {str(e)[:200]}",
+        }
 
 
 @router.get("/yt-dlp")

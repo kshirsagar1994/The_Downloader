@@ -27,7 +27,7 @@ services:
         value: "500"
       - key: ALLOWED_ORIGINS
         value: https://www.downloader.biz,https://downloader.biz
-      
+
       # ============================================================================
       # CRITICAL: YouTube on Cloud Hosting (Render, Heroku, etc.) REQUIRES one of:
       #   1. YOUTUBE_COOKIES - Export cookies from authenticated browser session (Netscape format or base64)
@@ -35,13 +35,18 @@ services:
       # Without these, YouTube's BotGuard will block ALL extraction attempts from cloud IPs.
       # See: https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp
       # ============================================================================
+      # QUICK SETUP: Run locally to get cookies:
+      #   pip install browser-cookie3
+      #   python scripts/export_youtube_cookies.py --browser chrome --format base64
+      # Then paste the output as YOUTUBE_COOKIES value below
+      # ============================================================================
       - key: YOUTUBE_COOKIES
-        value: "" # REQUIRED for YouTube: Export from browser (Netscape format or base64 encoded)
+        value: "" # REQUIRED for YouTube on cloud: base64-encoded Netscape cookies from your browser
       - key: YOUTUBE_COOKIES_FILE
-        value: "" # Optional: Path to cookie file on disk
+        value: "" # Optional: Path to cookie file on disk (alternative to YOUTUBE_COOKIES)
       - key: YOUTUBE_PROXY_URL
-        value: "" # REQUIRED alternative: Residential/SOCKS5/HTTP proxy for YouTube
-      
+        value: "" # ALTERNATIVE: Residential/SOCKS5/HTTP proxy for YouTube (e.g. http://user:pass@host:port)
+
       # Embedded PO Token Provider (runs in-container on loopback)
       # Note: Tokens generated here are tied to the Render IP and may be rejected by YouTube's BotGuard.
       # For reliable YouTube extraction, configure YOUTUBE_COOKIES or YOUTUBE_PROXY_URL above.
@@ -57,6 +62,10 @@ services:
         value: "stable"
       - key: YOUTUBE_CLIENTS
         value: "visionos,android,tv,mweb,ios,web"
+
+      # Diagnostic endpoints (no auth required):
+      #   GET /api/health/youtube - Overall YouTube extraction status
+      #   GET /api/health/youtube/cookies - Validates your YOUTUBE_COOKIES work
 
   # ---------------------------------------------------------------------------
   # 3. Frontend Web Application (Next.js 15 App Router)
