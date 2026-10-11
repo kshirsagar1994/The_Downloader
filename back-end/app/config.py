@@ -49,6 +49,8 @@ class Settings(BaseSettings):
 
     # YouTube PO Token Provider & Authentication
     PO_TOKEN_PROVIDER_URL: str | None = None
+    POT_PROVIDER_PORT: int = 4416
+    POT_PROVIDER_TIMEOUT_SECONDS: float = 5.0
     YOUTUBE_PO_TOKEN: str | None = None
     YOUTUBE_VISITOR_DATA: str | None = None
     YOUTUBE_COOKIES: str | None = None
@@ -88,12 +90,16 @@ class Settings(BaseSettings):
         Auto-detects container daemon at http://127.0.0.1:4416 if /opt/bgutil-pot/server is present.
         """
         candidate = self.PO_TOKEN_PROVIDER_URL
-        if not candidate or not candidate.strip():
+        if not candidate or not candidate.strip() or candidate.strip().rstrip("/") in (
+            "http://the-downloader-pot-provider:4416",
+            "the-downloader-pot-provider:4416",
+        ):
             # If internal container background provider exists, auto-default to it
             import os
             if os.path.isdir("/opt/bgutil-pot/server"):
-                return "http://127.0.0.1:4416"
-            return None
+                return f"http://127.0.0.1:{self.POT_PROVIDER_PORT}"
+            if not candidate or not candidate.strip():
+                return None
 
         raw_url = candidate.strip().rstrip("/")
         # Fix Render hostport edge cases:
@@ -170,20 +176,31 @@ class Settings(BaseSettings):
     def resolved_youtube_clients(self) -> list[str]:
         """
         Returns client preferences matching provider capabilities:
-        - When PO Token Provider or direct PO Token is configured, prioritizes
-          the WEBPO clients supported by BgUtil ('web', 'mweb', 'tvhtml5').
-        - When direct client mode without provider is used, prioritizes mobile endpoints ('android', 'ios', 'mweb', 'web').
-        - Always respects custom YOUTUBE_CLIENTS if explicitly defined.
+        - Prioritizes visionos and android device clients to eliminate BotGuard challenges on cloud hosting IPs,
+          while retaining tv, mweb, and web which leverage the BgUtil PO Token Provider.
+        - Automatically translates deprecated/unsupported client names (e.g. 'tvhtml5' -> 'tv').
+        - Always respects custom YOUTUBE_CLIENTS if explicitly defined (with tvhtml5 sanitized).
         """
+        def _sanitize_clients(clients: list[str]) -> list[str]:
+            sanitized: list[str] = []
+            for c in clients:
+                clean = c.strip()
+                if clean.lower() == "tvhtml5":
+                    clean = "tv"
+                if clean and clean not in sanitized:
+                    sanitized.append(clean)
+            return sanitized
+
         if self.YOUTUBE_CLIENTS and self.YOUTUBE_CLIENTS.strip():
-            return [c.strip() for c in self.YOUTUBE_CLIENTS.split(",") if c.strip()]
+            raw_list = [c.strip() for c in self.YOUTUBE_CLIENTS.split(",") if c.strip()]
+            return _sanitize_clients(raw_list)
 
         has_pot = bool(self.resolved_po_token_provider_url or self.YOUTUBE_PO_TOKEN or self.resolved_cookiefile)
         if has_pot:
-            # WEBPO clients supported by BgUtil PO Token Provider
-            return ["web", "mweb", "tvhtml5"]
+            # Balanced cloud order: visionos/android bypass datacenter BotGuard; tv/mweb/web use PO Token provider
+            return ["visionos", "android", "tv", "mweb", "ios", "web"]
         # Direct client mode without PO Token provider
-        return ["android", "ios", "mweb", "web"]
+        return ["visionos", "android", "ios", "tv", "mweb", "web"]
 
     @property
     def resolved_bgutil_script_home(self) -> str | None:

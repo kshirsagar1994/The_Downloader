@@ -14,10 +14,10 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# Clone and build bgutil-ytdlp-pot-provider server (for script-mode PO token generation)
-RUN git clone --depth 1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git /opt/bgutil-pot \
+# Clone and build bgutil-ytdlp-pot-provider matching python plugin version (2.0.2)
+RUN git clone --single-branch --branch 2.0.2 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git /opt/bgutil-pot \
     && cd /opt/bgutil-pot/server \
-    && npm install \
+    && npm ci \
     && npx tsc \
     && chmod -R 755 /opt/bgutil-pot
 

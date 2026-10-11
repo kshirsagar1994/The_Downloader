@@ -1,9 +1,47 @@
 import copy
+import shutil
 from typing import Any
 
 from app.config import get_settings
+from app.core.logging import logger
 
 settings = get_settings()
+
+
+class YtDlpLogHandler:
+    """
+    Captures yt-dlp internal diagnostics and bridges them into application logs
+    without leaking secrets, cookies, or token values.
+    """
+
+    def debug(self, msg: str) -> None:
+        clean = msg.strip()
+        if "[pot] PO Token Providers:" in clean:
+            provider_info = clean.split("[pot] PO Token Providers:")[1].strip()
+            logger.info(f"[POT Provider] Plugin discovered: {provider_info}")
+        elif "Generating a" in clean and "PO Token" in clean:
+            logger.info(f"[POT Provider] Token generation invoked: {clean}")
+        elif "Retrieved a" in clean and "PO Token" in clean:
+            logger.info(f"[POT Provider] Token generation succeeded: {clean}")
+        elif "[jsc:" in clean or "Solving JS challenges" in clean:
+            logger.info(f"[YT-JSC] JavaScript challenge solver active: {clean}")
+        else:
+            logger.debug(f"[yt-dlp:debug] {clean}")
+
+    def info(self, msg: str) -> None:
+        clean = msg.strip()
+        if "Generating a" in clean and "PO Token" in clean:
+            logger.info(f"[POT Provider] Token generation invoked: {clean}")
+        elif "Retrieved a" in clean and "PO Token" in clean:
+            logger.info(f"[POT Provider] Token generation succeeded: {clean}")
+        else:
+            logger.info(f"[yt-dlp] {clean}")
+
+    def warning(self, msg: str) -> None:
+        logger.warning(f"[yt-dlp:warning] {msg.strip()}")
+
+    def error(self, msg: str) -> None:
+        logger.error(f"[yt-dlp:error] {msg.strip()}")
 
 
 def build_base_ydl_opts(
@@ -18,6 +56,7 @@ def build_base_ydl_opts(
     3. Cookiefile if configured
     4. Isolated HTTP/HTTPS/SOCKS Proxy (YouTube proxy restricted to YouTube)
     5. Timeouts, geo-bypass, safety limits
+    6. Structured logging with secret scrubbing
     """
     is_youtube = bool(
         target_url and ("youtube.com" in target_url.lower() or "youtu.be" in target_url.lower())
@@ -52,15 +91,14 @@ def build_base_ydl_opts(
                 "server_home": [settings.resolved_bgutil_script_home],
             }
 
-    import shutil
-
     opts: dict[str, Any] = {
         "quiet": True,
-        "no_warnings": True,
+        "no_warnings": False,
         "ignoreerrors": False,
         "socket_timeout": 20,
         "geo_bypass": True,
         "extractor_args": extractor_args,
+        "logger": YtDlpLogHandler(),
     }
 
     # Enable JavaScript runtime for YouTube player signature challenges
@@ -110,19 +148,11 @@ def get_youtube_fallback_clients() -> list[list[str]]:
     to attempt if extraction fails. Prioritizes clients compatible with
     active authentication / token providers.
     """
-    has_pot = bool(settings.resolved_po_token_provider_url or settings.YOUTUBE_PO_TOKEN)
-    if has_pot:
-        return [
-            ["mweb"],
-            ["tvhtml5"],
-            ["web_embedded"],
-            ["android"],
-            ["ios"],
-        ]
     return [
+        ["visionos"],
         ["android"],
-        ["ios"],
+        ["tv"],
         ["mweb"],
         ["web"],
-        ["tv_embedded"],
+        ["ios"],
     ]

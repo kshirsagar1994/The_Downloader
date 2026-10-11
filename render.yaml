@@ -3,22 +3,7 @@
 
 services:
   # ---------------------------------------------------------------------------
-  # 1. PO Token Provider (BgUtil HTTP server for YouTube bot bypass - Private Service)
-  # ---------------------------------------------------------------------------
-  - type: pserv
-    name: the-downloader-pot-provider
-    runtime: docker
-    dockerfilePath: infrastructure/docker/Dockerfile.pot-provider
-    dockerContext: .
-    plan: starter
-    region: oregon
-    numInstances: 1
-    envVars:
-      - key: PORT
-        value: "4416"
-
-  # ---------------------------------------------------------------------------
-  # 2. Backend API & Media Processing Engine (FastAPI + Stream Engine + POT)
+  # 1. Backend API & Media Processing Engine (FastAPI + Stream Engine + Embedded POT)
   # ---------------------------------------------------------------------------
   - type: web
     name: the-downloader-api
@@ -43,7 +28,9 @@ services:
       - key: ALLOWED_ORIGINS
         value: https://www.downloader.biz,https://downloader.biz
       - key: PO_TOKEN_PROVIDER_URL
-        value: "http://the-downloader-pot-provider:4416" # Private network service URL, or auto-detected loopback http://127.0.0.1:4416
+        value: "http://127.0.0.1:4416" # Embedded in-container BgUtil PO Token daemon (loopback)
+      - key: POT_PROVIDER_PORT
+        value: "4416"
       - key: YOUTUBE_PO_TOKEN
         value: "" # Optional: Direct PO Token (e.g. web.player+<token>)
       - key: YOUTUBE_VISITOR_DATA
@@ -57,7 +44,7 @@ services:
       - key: YT_DLP_UPDATE_CHANNEL
         value: "stable" # Optional: yt-dlp release channel
       - key: YOUTUBE_CLIENTS
-        value: "web,mweb,tvhtml5" # Supported WEBPO clients for bgutil PO Token Provider
+        value: "visionos,android,tv,mweb,ios,web" # Bot-resilient cloud extraction order
 
   # ---------------------------------------------------------------------------
   # 3. Frontend Web Application (Next.js 15 App Router)
