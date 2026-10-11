@@ -27,24 +27,36 @@ services:
         value: "500"
       - key: ALLOWED_ORIGINS
         value: https://www.downloader.biz,https://downloader.biz
+      
+      # ============================================================================
+      # CRITICAL: YouTube on Cloud Hosting (Render, Heroku, etc.) REQUIRES one of:
+      #   1. YOUTUBE_COOKIES - Export cookies from authenticated browser session (Netscape format or base64)
+      #   2. YOUTUBE_PROXY_URL - Residential proxy (e.g. http://user:pass@proxy.example.com:8080)
+      # Without these, YouTube's BotGuard will block ALL extraction attempts from cloud IPs.
+      # See: https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp
+      # ============================================================================
+      - key: YOUTUBE_COOKIES
+        value: "" # REQUIRED for YouTube: Export from browser (Netscape format or base64 encoded)
+      - key: YOUTUBE_COOKIES_FILE
+        value: "" # Optional: Path to cookie file on disk
+      - key: YOUTUBE_PROXY_URL
+        value: "" # REQUIRED alternative: Residential/SOCKS5/HTTP proxy for YouTube
+      
+      # Embedded PO Token Provider (runs in-container on loopback)
+      # Note: Tokens generated here are tied to the Render IP and may be rejected by YouTube's BotGuard.
+      # For reliable YouTube extraction, configure YOUTUBE_COOKIES or YOUTUBE_PROXY_URL above.
       - key: PO_TOKEN_PROVIDER_URL
-        value: "http://127.0.0.1:4416" # Embedded in-container BgUtil PO Token daemon (loopback)
+        value: "http://127.0.0.1:4416"
       - key: POT_PROVIDER_PORT
         value: "4416"
       - key: YOUTUBE_PO_TOKEN
         value: "" # Optional: Direct PO Token (e.g. web.player+<token>)
       - key: YOUTUBE_VISITOR_DATA
         value: "" # Optional: Direct visitor data associated with PO Token
-      - key: YOUTUBE_COOKIES
-        value: "" # Optional: Fallback authentication cookies (Netscape format or base64 encoded)
-      - key: YOUTUBE_COOKIES_FILE
-        value: "" # Optional: Path to cookie file on disk
-      - key: YOUTUBE_PROXY_URL
-        value: "" # Optional: Residential / SOCKS5 / HTTP Proxy (e.g. http://user:pass@proxy.example.com:8080)
       - key: YT_DLP_UPDATE_CHANNEL
-        value: "stable" # Optional: yt-dlp release channel
+        value: "stable"
       - key: YOUTUBE_CLIENTS
-        value: "visionos,android,tv,mweb,ios,web" # Bot-resilient cloud extraction order
+        value: "visionos,android,tv,mweb,ios,web"
 
   # ---------------------------------------------------------------------------
   # 3. Frontend Web Application (Next.js 15 App Router)

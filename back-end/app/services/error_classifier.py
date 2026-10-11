@@ -49,8 +49,8 @@ def classify_ytdlp_error(exc: Exception, url: str) -> DownloaderException:
             details=err_str,
         )
 
-    # 2. YouTube Bot Verification & BotGuard Challenges
-    if any(k in err_msg for k in ("confirm you’re not a bot", "confirm you're not a bot", "bot verification", "botguard", "automated queries", "captcha")):
+# 2. YouTube Bot Verification & BotGuard Challenges
+    if any(k in err_msg for k in ("confirm you're not a bot", "confirm you\u2019re not a bot", "bot verification", "botguard", "automated queries", "captcha")):
         has_cookies = bool(settings.resolved_cookiefile)
         has_pot = bool(settings.resolved_po_token_provider_url or settings.YOUTUBE_PO_TOKEN)
         has_proxy = bool(settings.resolved_youtube_proxy)
@@ -61,24 +61,29 @@ def classify_ytdlp_error(exc: Exception, url: str) -> DownloaderException:
                 "The configured authentication cookies may have expired or need renewal."
             )
             action = "Update YOUTUBE_COOKIES with fresh cookies exported from an authorized session."
-        elif has_pot:
+        elif has_pot and not has_proxy:
+            # PO Token provider configured but no proxy - likely embedded provider on cloud IP
             msg = (
                 "YouTube challenged this request with bot verification. "
-                "The PO Token Provider may need a refresh or the host IP is restricted by YouTube's BotGuard."
+                "The embedded PO Token provider runs on the same cloud IP and its tokens are rejected by YouTube's BotGuard."
             )
-            action = "Verify PO_TOKEN_PROVIDER_URL health and ensure the token cache is active. On cloud hosting environments (such as Render), configure authorized session cookies (YOUTUBE_COOKIES) or an authorized proxy (YOUTUBE_PROXY)."
+            action = (
+                "REQUIRED for YouTube on cloud hosting (Render, etc.): Configure YOUTUBE_COOKIES (exported browser cookies) "
+                "or YOUTUBE_PROXY_URL (residential proxy). The embedded PO Token provider cannot bypass BotGuard on cloud IPs. "
+                "See: https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp"
+            )
         elif has_proxy:
             msg = (
                 "YouTube challenged this request with bot verification. "
                 "The configured proxy address may be restricted by YouTube."
             )
-            action = "Verify that YOUTUBE_PROXY is an authorized, operational proxy."
+            action = "Verify that YOUTUBE_PROXY is an authorized, operational residential proxy."
         else:
             msg = (
                 "YouTube temporarily challenged this request with bot verification on this server. "
-                "To resolve on cloud hosts, configure YOUTUBE_COOKIES, PO_TOKEN_PROVIDER_URL, or a residential PROXY."
+                "To resolve on cloud hosts, configure YOUTUBE_COOKIES or a residential PROXY."
             )
-            action = "Configure authorized YouTube cookies (YOUTUBE_COOKIES) or PO_TOKEN_PROVIDER_URL in server settings."
+            action = "Configure authorized YouTube cookies (YOUTUBE_COOKIES) or a residential proxy (YOUTUBE_PROXY_URL)."
 
         logger.warning(f"[ErrorClassifier] YouTube bot check triggered for {url}. Details: {exc}")
         return BotVerificationRequiredError(message=msg, user_action=action, details=err_str)
