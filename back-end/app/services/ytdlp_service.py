@@ -160,9 +160,11 @@ class YtDlpService:
         err_str = str(primary_error).lower() if primary_error else ""
 
         # Check for bot verification / sign-in challenges
+        # Handle both straight (') and curly (') quotes in error messages
         is_bot_verification = any(k in err_str for k in (
             "confirm you're not a bot",
-            "confirm you're not a bot",
+            "confirm you\u2019re not a bot",  # curly quote
+            "confirm you\u2019re not a bot",  # curly quote (right single quotation mark)
             "bot verification",
             "botguard",
             "automated queries",
