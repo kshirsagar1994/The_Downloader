@@ -194,9 +194,31 @@ class YtDlpService:
 
         # YouTube fallback player clients - try even on bot verification
         if is_youtube:
+            # For bot verification, try DIRECT client mode FIRST (visionos + android without PO Token)
+            # This is the most reliable method for cloud hosting IPs
+            if is_bot_verification:
+                logger.info("[YT] Bot verification detected - attempting direct client mode first (visionos+android)...")
+                direct_opts = copy.deepcopy(options)
+                if "extractor_args" not in direct_opts or not isinstance(direct_opts["extractor_args"], dict):
+                    direct_opts["extractor_args"] = {}
+
+                # Use only the most resilient clients for direct mode
+                direct_opts["extractor_args"]["youtube"] = {
+                    "player_client": ["visionos", "android"],
+                }
+                # Completely remove PO Token provider and visitor data
+                direct_opts["extractor_args"].pop("youtubepot-bgutilhttp", None)
+                direct_opts["extractor_args"].pop("youtubepot-bgutilscript", None)
+
+                direct_result = _extract_with_opts(direct_opts)
+                if direct_result:
+                    logger.info("[YT] Direct client mode extraction succeeded")
+                    return direct_result
+
+            # Then try individual fallback clients
             fallbacks = get_youtube_fallback_clients()
-            # Try more fallback combinations on bot verification (up to 5 instead of 3)
-            max_fallbacks = 5 if is_bot_verification else 3
+            # Try fewer fallback combinations on bot verification since direct mode was tried first
+            max_fallbacks = 3 if is_bot_verification else 3
 
             for client_chain in fallbacks[:max_fallbacks]:
                 fb_opts = copy.deepcopy(options)
@@ -214,27 +236,6 @@ class YtDlpService:
                 if fb_result:
                     logger.info(f"[YT] Fallback extraction succeeded with client(s): {client_chain}")
                     return fb_result
-
-            # Final attempt: Direct client mode (no PO Token provider, no visitor data, minimal clients)
-            # This can work when PO Token provider is configured but tokens are rejected
-            if is_bot_verification:
-                logger.info("[YT] Attempting direct client mode (no PO Token provider)...")
-                direct_opts = copy.deepcopy(options)
-                if "extractor_args" not in direct_opts or not isinstance(direct_opts["extractor_args"], dict):
-                    direct_opts["extractor_args"] = {}
-
-                # Use only the most resilient clients for direct mode
-                direct_opts["extractor_args"]["youtube"] = {
-                    "player_client": ["visionos", "android"],
-                }
-                # Completely remove PO Token provider and visitor data
-                direct_opts["extractor_args"].pop("youtubepot-bgutilhttp", None)
-                direct_opts["extractor_args"].pop("youtubepot-bgutilscript", None)
-
-                direct_result = _extract_with_opts(direct_opts)
-                if direct_result:
-                    logger.info("[YT] Direct client mode extraction succeeded")
-                    return direct_result
 
         if primary_error:
             raise primary_error

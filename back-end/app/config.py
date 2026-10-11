@@ -45,7 +45,7 @@ class Settings(BaseSettings):
     MAX_PLAYLIST_ITEMS: int = 50
     MAX_CONCURRENT_JOBS_PER_IP: int = 3
     MAX_JOB_DURATION_SECONDS: int = 900
-    MAX_EXTRACTION_TIMEOUT_SECONDS: int = 20
+    MAX_EXTRACTION_TIMEOUT_SECONDS: int = 45
 
     # YouTube PO Token Provider & Authentication
     PO_TOKEN_PROVIDER_URL: str | None = None
