@@ -234,8 +234,8 @@ def test_network_timeout_and_limited_retries():
         with pytest.raises(yt_dlp.utils.DownloadError):
             YtDlpService._run_extraction("https://www.youtube.com/watch?v=test", {})
 
-        # Should try: primary (2x: initial + error inspection) + 1 direct mode + 3 fallbacks = 6
-        assert call_count == 6, f"Expected 6 calls (primary x2 + direct + 3 fallbacks), got {call_count}"
+        # Should try: primary (1x single invocation) + 1 direct mode + 3 fallbacks = 5
+        assert call_count == 5, f"Expected 5 calls (primary + direct + 3 fallbacks), got {call_count}"
 
 
 # =========================================================================

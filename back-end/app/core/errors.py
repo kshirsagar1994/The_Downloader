@@ -13,6 +13,10 @@ def sanitize_error_details(details: Any) -> Any:
     text = re.sub(r'(?:cookies?|cookie_content)=["\']?[^\s"\'&]+', "cookie=[REDACTED]", text, flags=re.IGNORECASE)
     # Redact tokens
     text = re.sub(r'(?:po_token|token|pot|visitor_data)=["\']?[^\s"\'&]+', "token=[REDACTED]", text, flags=re.IGNORECASE)
+    text = re.sub(r'web\.player\+[a-zA-Z0-9_\-\.]+', "web.player+[REDACTED]", text, flags=re.IGNORECASE)
+    # Redact signed media URLs
+    text = re.sub(r'https?://[^\s"\'<>]*(?:googlevideo\.com|cloudfront\.net|akamaized\.net)/[^\s"\'<>]+', "[SIGNED_MEDIA_URL_REDACTED]", text, flags=re.IGNORECASE)
+    text = re.sub(r'(?:[?&])(?:sig|signature)=[^\s"\'&]+', "&sig=[REDACTED]", text, flags=re.IGNORECASE)
     # Redact passwords in URLs (http://user:pass@host)
     text = re.sub(r'(://[^:\s]+:)[^@\s]+(@)', r"\1[REDACTED]\2", text)
     # Redact bearer headers

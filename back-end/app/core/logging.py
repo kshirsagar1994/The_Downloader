@@ -1,16 +1,24 @@
 import logging
 import re
 import sys
+from typing import ClassVar
 
 
 class SensitiveDataFilter(logging.Filter):
     """Redacts sensitive credentials, cookies, tokens, and proxy passwords from log records."""
 
-    _PATTERNS = [
-        # Redact cookie strings
+    _PATTERNS: ClassVar[list[tuple[re.Pattern[str], str]]] = [
+        # Redact cookie strings and Netscape cookies
         (re.compile(r'(?:cookies?|cookie_content)=["\']?[^\s"\'&]+', re.IGNORECASE), "cookie=[REDACTED]"),
-        # Redact po_token / pot
+        (re.compile(r'(?:\.youtube\.com|\.google\.com)\s+(?:TRUE|FALSE)\s+\S+\s+(?:TRUE|FALSE)\s+\d+\s+\S+\s+\S+', re.IGNORECASE), "[NETSCAPE_COOKIE_REDACTED]"),
+        # Redact po_token / pot / visitor_data
         (re.compile(r'(?:po_token|pot|visitor_data)=["\']?[^\s"\'&]+', re.IGNORECASE), "po_token=[REDACTED]"),
+        (re.compile(r'Generated POT:\s*[^\s"\'<>]+', re.IGNORECASE), "Generated POT: [REDACTED]"),
+        (re.compile(r'web\.player\+[a-zA-Z0-9_\-\.]+', re.IGNORECASE), "web.player+[REDACTED]"),
+        # Redact signed media URLs (e.g. googlevideo, cloudfront)
+        (re.compile(r'https?://[^\s"\'<>]*(?:googlevideo\.com|cloudfront\.net|akamaized\.net)/[^\s"\'<>]+', re.IGNORECASE), "[SIGNED_MEDIA_URL_REDACTED]"),
+        # Redact signature parameters in URLs or logs
+        (re.compile(r'(?:[?&])(?:sig|signature)=[^\s"\'&]+', re.IGNORECASE), "&sig=[REDACTED]"),
         # Redact Authorization / Bearer tokens
         (re.compile(r'(?:bearer\s+[a-zA-Z0-9_\-\.]+)', re.IGNORECASE), "Bearer [REDACTED]"),
         # Redact passwords embedded in URLs: http://user:pass@host

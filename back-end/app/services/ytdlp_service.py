@@ -66,11 +66,16 @@ class YtDlpService:
         )
 
         # If PO Token provider is configured but unhealthy, strip it from options
-        if is_youtube and settings.resolved_po_token_provider_url and not po_provider_healthy:
-            if "extractor_args" in ydl_opts and isinstance(ydl_opts["extractor_args"], dict):
-                ydl_opts["extractor_args"].pop("youtubepot-bgutilhttp", None)
-                ydl_opts["extractor_args"].pop("youtubepot-bgutilscript", None)
-                logger.info("[YT] Stripped PO Token provider from extraction options due to health check failure")
+        if (
+            is_youtube
+            and settings.resolved_po_token_provider_url
+            and not po_provider_healthy
+            and "extractor_args" in ydl_opts
+            and isinstance(ydl_opts["extractor_args"], dict)
+        ):
+            ydl_opts["extractor_args"].pop("youtubepot-bgutilhttp", None)
+            ydl_opts["extractor_args"].pop("youtubepot-bgutilscript", None)
+            logger.info("[YT] Stripped PO Token provider from extraction options due to health check failure")
 
         try:
             if is_youtube:
@@ -136,28 +141,40 @@ class YtDlpService:
             try:
                 with yt_dlp.YoutubeDL(opts) as ydl:
                     return ydl.extract_info(url, download=False)
-            except yt_dlp.utils.DownloadError:
-                return None
-            except Exception:  # noqa: BLE001
+            except (yt_dlp.utils.DownloadError, Exception):  # noqa: BLE001
                 return None
 
-        # Attempt 1: Primary extraction with configured options
-        primary_result = _extract_with_opts(options)
-        if primary_result:
-            return primary_result
+        # Attempt 1: Primary extraction with configured options (single invocation)
+        primary_result: dict[str, Any] | None = None
+        primary_error: Exception | None = None
 
-        # If primary failed, check if it was a bot verification error
-        # We need to catch the exception to inspect it
-        primary_error = None
         try:
             with yt_dlp.YoutubeDL(options) as ydl:
-                ydl.extract_info(url, download=False)
+                primary_result = ydl.extract_info(url, download=False)
         except yt_dlp.utils.DownloadError as exc:
             primary_error = exc
         except Exception as exc:  # noqa: BLE001
             primary_error = exc
 
+        if primary_result:
+            return primary_result
+
         err_str = str(primary_error).lower() if primary_error else ""
+
+        # Safe diagnostic identification of the failure stage
+        if is_youtube:
+            stage = "unknown"
+            if any(k in err_str for k in ("get_pot", "potokenprovider", "bgutil", "error reaching post /get_pot")):
+                stage = "during_token_generation (POT provider communication error or failure)"
+            elif any(k in err_str for k in ("confirm you're not a bot", "confirm you\u2019re not a bot", "bot verification", "botguard")):
+                stage = "after_youtube_rejection (YouTube challenged request with BotGuard/verification)"
+            elif any(k in err_str for k in ("sign in", "login required")):
+                stage = "authentication_required (YouTube requires sign-in)"
+            elif "timed out" in err_str or "timeout" in err_str:
+                stage = "network_timeout (Request timed out)"
+            else:
+                stage = "extraction_error"
+            logger.info(f"[YT Diagnostics] Primary extraction attempt failed at stage: {stage}")
 
         # Check for bot verification / sign-in challenges
         # Handle both straight (') and curly (') quotes in error messages
@@ -217,8 +234,8 @@ class YtDlpService:
 
             # Then try individual fallback clients
             fallbacks = get_youtube_fallback_clients()
-            # Try fewer fallback combinations on bot verification since direct mode was tried first
-            max_fallbacks = 3 if is_bot_verification else 3
+            # Try limited fallback combinations since direct mode was tried first
+            max_fallbacks = 3
 
             for client_chain in fallbacks[:max_fallbacks]:
                 fb_opts = copy.deepcopy(options)
@@ -293,11 +310,14 @@ class YtDlpService:
                             cdn_matches = set(re.findall(r'https://[^"\'\s<>]+\.cdninstagram\.com/[^"\'\s<>]+', content))
                             for u in cdn_matches:
                                 clean_u = html_lib.unescape(u).replace("\\u0026", "&").replace("\\", "")
-                                if (".jpg" in clean_u or ".webp" in clean_u) and any(
-                                    tag in clean_u for tag in ("t51.82787-15", "t51.2885-15", "p1080x1080", "s1080x1080", "c604")
+                                if (
+                                    (".jpg" in clean_u or ".webp" in clean_u)
+                                    and any(
+                                        tag in clean_u for tag in ("t51.82787-15", "t51.2885-15", "p1080x1080", "s1080x1080", "c604")
+                                    )
+                                    and clean_u not in image_urls
                                 ):
-                                    if clean_u not in image_urls:
-                                        image_urls.append(clean_u)
+                                    image_urls.append(clean_u)
             else:
                 async with httpx.AsyncClient(follow_redirects=True, timeout=12.0, headers=headers) as client:
                     resp = await client.get(url)
@@ -358,6 +378,6 @@ class YtDlpService:
                 total_items=len(items) if len(items) > 1 else None,
                 created_at=datetime.datetime.now(datetime.UTC).isoformat(),
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             logger.warning(f"Failed to extract social images for {url}: {exc}")
             return None
