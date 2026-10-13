@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { DownloadCloud, Sparkles, ShieldCheck, Layers, Share2, Check } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
+import { AdsterraSmartlinkButton } from "./ads/AdsterraSmartlink";
 
 export function Header() {
   const [copied, setCopied] = React.useState(false);
@@ -81,6 +82,8 @@ export function Header() {
 
         {/* Actions */}
         <div className="flex items-center gap-2.5">
+          <AdsterraSmartlinkButton className="hidden sm:inline-flex" />
+
           <button
             type="button"
             onClick={handleShareApp}

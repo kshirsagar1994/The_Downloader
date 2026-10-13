@@ -79,6 +79,17 @@ export function Footer() {
                 <span className="text-muted-foreground">Privacy Protection:</span>
                 <span className="text-emerald-400 font-medium">Zero Storage Logs</span>
               </div>
+              <div className="pt-1.5 border-t border-border/40">
+                <a
+                  href="https://ardance.org/4/945a8cce411b1587d855795338599345"
+                  target="_blank"
+                  rel="noopener noreferrer nofollow"
+                  className="flex items-center justify-between text-primary hover:underline font-medium text-[11px]"
+                >
+                  <span>⚡ Partner High-Speed Cloud</span>
+                  <span className="text-[9px] uppercase font-bold px-1 rounded bg-primary/20 text-primary border border-primary/30">Ad</span>
+                </a>
+              </div>
             </div>
           </div>
         </div>

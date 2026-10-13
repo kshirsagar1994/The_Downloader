@@ -25,6 +25,10 @@ import {
 } from "lucide-react";
 
 import { extractMedia, createJob, cancelJob, ApiError, API_BASE_URL } from "../lib/api";
+import { AdsterraBanner } from "../components/ads/AdsterraBanner";
+import { AdsterraNativeBanner } from "../components/ads/AdsterraNativeBanner";
+import { AdsterraSmartlinkBanner } from "../components/ads/AdsterraSmartlink";
+import { AdsterraSkyscrapers } from "../components/ads/AdsterraSkyscrapers";
 
 function DownloaderApp() {
   const { showToast } = useToast();
@@ -152,6 +156,9 @@ function DownloaderApp() {
       {/* Background Subtle Gradient Blobs */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-96 bg-gradient-to-b from-primary/15 via-blue-500/5 to-transparent blur-3xl pointer-events-none -z-10" />
 
+      {/* Desktop Gutter Skyscraper Ads (160x600) */}
+      <AdsterraSkyscrapers />
+
       <Header />
 
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-16 space-y-16">
@@ -184,6 +191,21 @@ function DownloaderApp() {
               </span>
             ))}
           </div>
+
+          {/* Adsterra Smartlink High-Speed Server Partner Banner */}
+          <div className="pt-4 max-w-3xl mx-auto">
+            <AdsterraSmartlinkBanner />
+          </div>
+
+          {/* Adsterra Top Leaderboard Banner 728x90 */}
+          <div className="hidden md:flex justify-center pt-2">
+            <AdsterraBanner
+              idKey="cba33abdbb228a5d54e43a0b748203d8"
+              width={728}
+              height={90}
+              label="Sponsored Advertisement"
+            />
+          </div>
         </section>
 
         {/* Dynamic Workflow Area */}
@@ -214,6 +236,9 @@ function DownloaderApp() {
             </div>
           )}
         </section>
+
+        {/* Adsterra Native Banner Recommendations */}
+        <AdsterraNativeBanner />
 
         {/* Feature Cards Grid */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 pt-8">
@@ -257,6 +282,16 @@ function DownloaderApp() {
             </p>
           </div>
         </section>
+
+        {/* Adsterra Bottom Leaderboard Banner 728x90 */}
+        <div className="hidden md:flex justify-center my-6">
+          <AdsterraBanner
+            idKey="cba33abdbb228a5d54e43a0b748203d8"
+            width={728}
+            height={90}
+            label="Sponsored Advertisement"
+          />
+        </div>
 
         {/* How It Works 4-Step Diagram */}
         <section className="rounded-3xl border border-border/80 bg-card/30 backdrop-blur-md p-8 sm:p-12 space-y-8">
