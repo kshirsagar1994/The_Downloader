@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { logAdEvent } from "../../lib/adDiagnostics";
 
 interface AdsterraBannerProps {
   idKey: string;
@@ -21,16 +22,17 @@ export function AdsterraBanner({
 }: AdsterraBannerProps) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = React.useState(false);
+  const uniqueId = React.useId();
 
   React.useEffect(() => {
     setMounted(true);
-  }, []);
+    logAdEvent(`Banner_${idKey}_${width}x${height}`, "COMPONENT_MOUNTED", { width, height });
+  }, [idKey, width, height]);
 
   React.useEffect(() => {
     if (!mounted || !containerRef.current) return;
 
     const container = containerRef.current;
-    // Clear any previous iframe
     container.innerHTML = "";
 
     const iframe = document.createElement("iframe");
@@ -39,9 +41,21 @@ export function AdsterraBanner({
     iframe.style.border = "none";
     iframe.style.overflow = "hidden";
     iframe.setAttribute("scrolling", "no");
-    iframe.setAttribute("title", label || "Advertisement");
+    iframe.setAttribute("title", `${label} ${width}x${height}`);
+    iframe.setAttribute("id", `ad-frame-${uniqueId.replace(/[^a-zA-Z0-9_-]/g, "")}`);
+
+    iframe.onload = () => {
+      logAdEvent(`Banner_${idKey}_${width}x${height}`, "IFRAME_LOADED", { width, height });
+    };
+
+    iframe.onerror = (e) => {
+      logAdEvent(`Banner_${idKey}_${width}x${height}`, "IFRAME_ERROR", { error: String(e) });
+    };
 
     container.appendChild(iframe);
+    logAdEvent(`Banner_${idKey}_${width}x${height}`, "SCRIPT_REQUESTED", {
+      scriptUrl: `https://bellnewyork.org/22/${idKey}`,
+    });
 
     try {
       const doc = iframe.contentWindow?.document || iframe.contentDocument;
@@ -85,7 +99,8 @@ export function AdsterraBanner({
         doc.close();
       }
     } catch (e) {
-      console.warn("Failed to initialize Adsterra banner iframe", e);
+      logAdEvent(`Banner_${idKey}_${width}x${height}`, "IFRAME_ERROR", { exception: String(e) });
+      console.warn("[Adsterra] Failed to write into banner iframe", e);
     }
 
     return () => {
@@ -93,10 +108,13 @@ export function AdsterraBanner({
         container.innerHTML = "";
       }
     };
-  }, [mounted, idKey, width, height, label]);
+  }, [mounted, idKey, width, height, label, uniqueId]);
 
   return (
-    <div className={`flex flex-col items-center justify-center my-4 ${className}`}>
+    <div
+      aria-label="Advertisement Banner"
+      className={`flex flex-col items-center justify-center my-4 ${className}`}
+    >
       {label && (
         <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60 mb-1.5 select-none font-medium">
           {label}
@@ -104,7 +122,7 @@ export function AdsterraBanner({
       )}
       <div
         className={`relative flex items-center justify-center overflow-hidden rounded-xl border border-border/40 bg-card/20 shadow-sm backdrop-blur-sm ${
-          responsiveScale && width > 400 ? "max-w-full" : ""
+          responsiveScale && width > 400 ? "max-w-full overflow-hidden" : ""
         }`}
         style={{
           width: responsiveScale && width > 400 ? undefined : `${width}px`,

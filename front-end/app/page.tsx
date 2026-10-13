@@ -283,15 +283,6 @@ function DownloaderApp() {
           </div>
         </section>
 
-        {/* Adsterra Bottom Leaderboard Banner 728x90 */}
-        <div className="hidden md:flex justify-center my-6">
-          <AdsterraBanner
-            idKey="cba33abdbb228a5d54e43a0b748203d8"
-            width={728}
-            height={90}
-            label="Sponsored Advertisement"
-          />
-        </div>
 
         {/* How It Works 4-Step Diagram */}
         <section className="rounded-3xl border border-border/80 bg-card/30 backdrop-blur-md p-8 sm:p-12 space-y-8">

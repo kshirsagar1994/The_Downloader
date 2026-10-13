@@ -83,11 +83,11 @@ export function Footer() {
                 <a
                   href="https://ardance.org/4/945a8cce411b1587d855795338599345"
                   target="_blank"
-                  rel="noopener noreferrer nofollow"
-                  className="flex items-center justify-between text-primary hover:underline font-medium text-[11px]"
+                  rel="noopener noreferrer nofollow sponsored"
+                  className="flex items-center justify-between text-muted-foreground hover:text-primary transition-colors font-medium text-[11px]"
                 >
-                  <span>⚡ Partner High-Speed Cloud</span>
-                  <span className="text-[9px] uppercase font-bold px-1 rounded bg-primary/20 text-primary border border-primary/30">Ad</span>
+                  <span>Featured Partner Offers</span>
+                  <span className="text-[9px] uppercase font-bold px-1 rounded bg-muted/60 text-muted-foreground border border-border/50">Ad</span>
                 </a>
               </div>
             </div>
