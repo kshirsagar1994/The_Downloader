@@ -8,18 +8,13 @@ const POPUNDER_SRC = "https://accountut.com/1/e4a8db086145e255eb3dd3e35c07d1e4";
 const SOCIAL_BAR_SRC = "https://bellnewyork.org/14/719dbaa2b0800fd9cb1801ece80b6cd9";
 
 export function AdsterraGlobalScripts() {
-  React.useEffect(() => {
-    logAdEvent("Global_Popunder", "SCRIPT_REQUESTED", { src: POPUNDER_SRC });
-    logAdEvent("Global_SocialBar", "SCRIPT_REQUESTED", { src: SOCIAL_BAR_SRC });
-  }, []);
-
   return (
     <>
-      {/* Adsterra Popunder */}
+      {/* Adsterra Popunder - lazyOnload works with static export */}
       <Script
         id="adsterra-popunder"
         src={POPUNDER_SRC}
-        strategy="afterInteractive"
+        strategy="lazyOnload"
         data-cfasync="false"
         onLoad={() => {
           logAdEvent("Global_Popunder", "SCRIPT_LOADED", { src: POPUNDER_SRC });
@@ -29,11 +24,11 @@ export function AdsterraGlobalScripts() {
         }}
       />
 
-      {/* Adsterra Social Bar */}
+      {/* Adsterra Social Bar - lazyOnload works with static export */}
       <Script
         id="adsterra-socialbar"
         src={SOCIAL_BAR_SRC}
-        strategy="afterInteractive"
+        strategy="lazyOnload"
         data-cfasync="false"
         onLoad={() => {
           logAdEvent("Global_SocialBar", "SCRIPT_LOADED", { src: SOCIAL_BAR_SRC });

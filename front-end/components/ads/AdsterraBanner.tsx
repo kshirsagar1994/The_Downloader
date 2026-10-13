@@ -24,91 +24,70 @@ export function AdsterraBanner({
   const [mounted, setMounted] = React.useState(false);
   const uniqueId = React.useId();
 
+  // Log component mount
   React.useEffect(() => {
     setMounted(true);
     logAdEvent(`Banner_${idKey}_${width}x${height}`, "COMPONENT_MOUNTED", { width, height });
   }, [idKey, width, height]);
 
+  // Generate iframe srcdoc content (renders immediately, not in useEffect)
+  const getIframeSrcDoc = () => `
+    <!DOCTYPE html>
+    <html lang="en">
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <style>
+          *, *::before, *::after { box-sizing: border-box; }
+          html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+        </style>
+      </head>
+      <body>
+        <script type="text/javascript">
+          atOptions = {
+            'key' : '${idKey}',
+            'format' : 'iframe',
+            'height' : ${height},
+            'width' : ${width},
+            'params' : {}
+          };
+        <\/script>
+        <script type="text/javascript" src="https://bellnewyork.org/22/${idKey}"><\/script>
+      </body>
+    </html>
+  `;
+
+  // This runs on mount to log events, but iframe is rendered directly
   React.useEffect(() => {
     if (!mounted || !containerRef.current) return;
 
     const container = containerRef.current;
-    container.innerHTML = "";
+    // Iframe is already rendered via srcdoc, just log
+    logAdEvent(`Banner_${idKey}_${width}x${height}`, "IFRAME_RENDERED", { width, height });
 
-    const iframe = document.createElement("iframe");
-    iframe.width = `${width}`;
-    iframe.height = `${height}`;
-    iframe.style.border = "none";
-    iframe.style.overflow = "hidden";
-    iframe.setAttribute("scrolling", "no");
-    iframe.setAttribute("title", `${label} ${width}x${height}`);
-    iframe.setAttribute("id", `ad-frame-${uniqueId.replace(/[^a-zA-Z0-9_-]/g, "")}`);
-
-    iframe.onload = () => {
-      logAdEvent(`Banner_${idKey}_${width}x${height}`, "IFRAME_LOADED", { width, height });
-    };
-
-    iframe.onerror = (e) => {
-      logAdEvent(`Banner_${idKey}_${width}x${height}`, "IFRAME_ERROR", { error: String(e) });
-    };
-
-    container.appendChild(iframe);
-    logAdEvent(`Banner_${idKey}_${width}x${height}`, "SCRIPT_REQUESTED", {
-      scriptUrl: `https://bellnewyork.org/22/${idKey}`,
-    });
-
-    try {
-      const doc = iframe.contentWindow?.document || iframe.contentDocument;
-      if (doc) {
-        doc.open();
-        doc.write(`
-          <!DOCTYPE html>
-          <html lang="en">
-            <head>
-              <meta charset="utf-8" />
-              <meta name="viewport" content="width=device-width, initial-scale=1" />
-              <style>
-                *, *::before, *::after { box-sizing: border-box; }
-                html, body {
-                  margin: 0;
-                  padding: 0;
-                  width: 100%;
-                  height: 100%;
-                  overflow: hidden;
-                  background-color: transparent;
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                }
-              </style>
-            </head>
-            <body>
-              <script type="text/javascript">
-                atOptions = {
-                  'key' : '${idKey}',
-                  'format' : 'iframe',
-                  'height' : ${height},
-                  'width' : ${width},
-                  'params' : {}
-                };
-              <\/script>
-              <script type="text/javascript" src="https://bellnewyork.org/22/${idKey}"><\/script>
-            </body>
-          </html>
-        `);
-        doc.close();
-      }
-    } catch (e) {
-      logAdEvent(`Banner_${idKey}_${width}x${height}`, "IFRAME_ERROR", { exception: String(e) });
-      console.warn("[Adsterra] Failed to write into banner iframe", e);
+    // Listen for iframe load/error if we can access it
+    const iframe = container.querySelector("iframe");
+    if (iframe) {
+      iframe.onload = () => {
+        logAdEvent(`Banner_${idKey}_${width}x${height}`, "IFRAME_LOADED", { width, height });
+      };
+      iframe.onerror = (e) => {
+        logAdEvent(`Banner_${idKey}_${width}x${height}`, "IFRAME_ERROR", { error: String(e) });
+      };
     }
+  }, [mounted, idKey, width, height]);
 
-    return () => {
-      if (container) {
-        container.innerHTML = "";
-      }
-    };
-  }, [mounted, idKey, width, height, label, uniqueId]);
+  const iframeSrcDoc = getIframeSrcDoc();
 
   return (
     <div
@@ -133,7 +112,18 @@ export function AdsterraBanner({
           ref={containerRef}
           style={{ width: `${width}px`, height: `${height}px` }}
           className="flex items-center justify-center shrink-0"
-        />
+        >
+          <iframe
+            width={width}
+            height={height}
+            style={{ border: "none", overflow: "hidden" }}
+            scrolling="no"
+            title={`${label} ${width}x${height}`}
+            id={`ad-frame-${uniqueId.replace(/[^a-zA-Z0-9_-]/g, "")}`}
+            srcDoc={iframeSrcDoc}
+            sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals allow-top-navigation-by-user-activation"
+          />
+        </div>
       </div>
     </div>
   );

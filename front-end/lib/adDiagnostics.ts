@@ -21,6 +21,7 @@ export type AdEventType =
   | "CONTAINER_INITIALIZED"
   | "IFRAME_LOADED"
   | "IFRAME_ERROR"
+  | "IFRAME_RENDERED"
   | "WARNING";
 
 export interface AdDiagnosticEvent {
