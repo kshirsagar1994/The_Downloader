@@ -59,10 +59,10 @@ class VideoService:
                 return
 
             status = d.get("status")
-            downloaded = int(round(float(d.get("downloaded_bytes") or 0)))
-            total = int(round(float(d.get("total_bytes") or d.get("total_bytes_estimate") or 0)))
+            downloaded = round(float(d.get("downloaded_bytes") or 0))
+            total = round(float(d.get("total_bytes") or d.get("total_bytes_estimate") or 0))
             speed = float(d.get("speed") or 0.0)
-            eta = int(round(float(d.get("eta") or 0)))
+            eta = round(float(d.get("eta") or 0))
 
             percent = 0.0
             if total > 0:
@@ -104,8 +104,6 @@ class VideoService:
             )
             progress_callback(event)
 
-        from app.services.ytdlp_options import build_base_ydl_opts
-
         ydl_opts = build_base_ydl_opts(
             {
                 "format": selected_format,
@@ -138,18 +136,36 @@ class VideoService:
         from app.core.errors import DownloaderException
         from app.services.error_classifier import classify_ytdlp_error
 
-        try:
-            await asyncio.to_thread(cls._run_ydl_download, validated_url, ydl_opts)
-        except yt_dlp.utils.DownloadError as exc:
-            logger.error(f"yt-dlp Video DownloadError: {exc}")
-            classified = classify_ytdlp_error(exc, validated_url)
-            raise classified from exc
-        except DownloaderException:
-            raise
-        except Exception as exc:
-            logger.error(f"Video download exception: {exc}")
-            classified = classify_ytdlp_error(exc, validated_url)
-            raise classified from exc
+        # Transient error keywords that warrant a single retry
+        _TRANSIENT_KEYWORDS = ("timed out", "connection reset", "temporary failure in name resolution", "network is unreachable")
+        max_attempts = 2
+
+        for attempt in range(1, max_attempts + 1):
+            try:
+                await asyncio.to_thread(cls._run_ydl_download, validated_url, ydl_opts)
+                break
+            except yt_dlp.utils.DownloadError as exc:
+                err_lower = str(exc).lower()
+                is_transient = any(k in err_lower for k in _TRANSIENT_KEYWORDS)
+                if is_transient and attempt < max_attempts:
+                    logger.warning(f"Transient download error (attempt {attempt}/{max_attempts}), retrying in 2s: {exc}")
+                    await asyncio.sleep(2)
+                    continue
+                logger.error(f"yt-dlp Video DownloadError: {exc}")
+                classified = classify_ytdlp_error(exc, validated_url)
+                raise classified from exc
+            except DownloaderException:
+                raise
+            except Exception as exc:
+                err_lower = str(exc).lower()
+                is_transient = any(k in err_lower for k in _TRANSIENT_KEYWORDS)
+                if is_transient and attempt < max_attempts:
+                    logger.warning(f"Transient download error (attempt {attempt}/{max_attempts}), retrying in 2s: {exc}")
+                    await asyncio.sleep(2)
+                    continue
+                logger.error(f"Video download exception: {exc}")
+                classified = classify_ytdlp_error(exc, validated_url)
+                raise classified from exc
 
         # Find the produced output file
         candidates = [

@@ -111,7 +111,16 @@ class YtDlpService:
             logger.error(f"yt-dlp DownloadError: {exc}")
 
             # Photo post fallback for Instagram, Twitter, Pinterest (when no video formats exist)
-            if any(k in err_msg for k in ("no video formats found", "no video could be found", "sent an empty media response", "only works when logged-in")) or any(p in validated_url.lower() for p in ("instagram", "pinterest", "twitter.com", "x.com")):
+            # Only trigger on "no video/media" errors — NOT on timeouts, rate limits, or auth errors
+            is_no_media_error = any(k in err_msg for k in (
+                "no video formats found", "no video could be found",
+                "sent an empty media response", "no media found",
+                "there's no video in this",
+            ))
+            is_social_platform = any(p in validated_url.lower() for p in ("instagram", "pinterest", "twitter.com", "x.com"))
+            is_login_hint = "only works when logged-in" in err_msg
+
+            if is_no_media_error or (is_social_platform and is_login_hint):
                 try:
                     social_result = await cls._extract_social_media_images(validated_url)
                     if social_result:
@@ -280,44 +289,74 @@ class YtDlpService:
             ig_match = re.search(r'instagram\.com/(?:p|reel|tv)/([A-Za-z0-9_-]+)', url)
             if ig_match:
                 shortcode = ig_match.group(1)
-                slides = [shortcode]
-                if shortcode == "Dd_wneEpss1":
-                    slides = ["Dd_wneEpss1", "Dd_wnkWp6Cp", "Dd_wnm4JFmR"]
 
                 async with httpx.AsyncClient(follow_redirects=True, timeout=12.0, headers=headers) as client:
-                    for sc in slides:
-                        slide_url = f"https://www.instagram.com/p/{sc}/"
-                        resp = await client.get(slide_url)
-                        if resp.status_code == 200:
-                            content = resp.text
-                            if title == "Social Post":
-                                title_match = re.search(r'<meta property="og:title" content="([^"]+)"', content)
-                                if title_match:
-                                    title = html_lib.unescape(title_match.group(1)).strip()
-                                if " on Instagram:" in title:
-                                    uploader = title.split(" on Instagram:")[0].strip()
-                                desc_match = re.search(r'<meta property="og:description" content="([^"]+)"', content)
-                                if desc_match:
-                                    desc = html_lib.unescape(desc_match.group(1)).strip()
+                    # Fetch the main post page first to extract metadata and discover carousel slides
+                    main_url = f"https://www.instagram.com/p/{shortcode}/"
+                    main_resp = await client.get(main_url)
 
-                            og_img = re.search(r'<meta property="og:image" content="([^"]+)"', content)
-                            if og_img:
-                                clean_og = html_lib.unescape(og_img.group(1)).replace("\\u0026", "&").replace("\\", "")
-                                if clean_og not in image_urls:
-                                    image_urls.append(clean_og)
+                    if main_resp.status_code == 200:
+                        main_content = main_resp.text
 
-                            # Check CDN matches
-                            cdn_matches = set(re.findall(r'https://[^"\'\s<>]+\.cdninstagram\.com/[^"\'\s<>]+', content))
-                            for u in cdn_matches:
-                                clean_u = html_lib.unescape(u).replace("\\u0026", "&").replace("\\", "")
-                                if (
-                                    (".jpg" in clean_u or ".webp" in clean_u)
-                                    and any(
-                                        tag in clean_u for tag in ("t51.82787-15", "t51.2885-15", "p1080x1080", "s1080x1080", "c604")
+                        # Extract metadata from main post
+                        title_match = re.search(r'<meta property="og:title" content="([^"]+)"', main_content)
+                        if title_match:
+                            title = html_lib.unescape(title_match.group(1)).strip()
+                        if " on Instagram:" in title:
+                            uploader = title.split(" on Instagram:")[0].strip()
+                        desc_match = re.search(r'<meta property="og:description" content="([^"]+)"', main_content)
+                        if desc_match:
+                            desc = html_lib.unescape(desc_match.group(1)).strip()
+
+                        # Extract the OG image from the main page
+                        og_img = re.search(r'<meta property="og:image" content="([^"]+)"', main_content)
+                        if og_img:
+                            clean_og = html_lib.unescape(og_img.group(1)).replace("\\u0026", "&").replace("\\", "")
+                            if clean_og not in image_urls:
+                                image_urls.append(clean_og)
+
+                        # Discover carousel slides: look for linked shortcodes in the page source
+                        # Instagram carousel posts embed slide shortcodes in the page source
+                        carousel_shortcodes = re.findall(
+                            r'instagram\.com/p/([A-Za-z0-9_-]+)/', main_content
+                        )
+                        # Deduplicate and exclude the main shortcode (already fetched)
+                        seen_codes = {shortcode}
+                        additional_slides = []
+                        for sc in carousel_shortcodes:
+                            if sc not in seen_codes:
+                                seen_codes.add(sc)
+                                additional_slides.append(sc)
+
+                        # Fetch additional carousel slide pages for their OG images
+                        for sc in additional_slides:
+                            slide_url = f"https://www.instagram.com/p/{sc}/"
+                            try:
+                                slide_resp = await client.get(slide_url)
+                                if slide_resp.status_code == 200:
+                                    slide_og = re.search(
+                                        r'<meta property="og:image" content="([^"]+)"',
+                                        slide_resp.text,
                                     )
-                                    and clean_u not in image_urls
-                                ):
-                                    image_urls.append(clean_u)
+                                    if slide_og:
+                                        clean_slide = html_lib.unescape(slide_og.group(1)).replace("\\u0026", "&").replace("\\", "")
+                                        if clean_slide not in image_urls:
+                                            image_urls.append(clean_slide)
+                            except Exception as e:  # noqa: BLE001
+                                logger.debug(f"Failed to fetch carousel slide {sc}: {e}")
+
+                        # Also check CDN matches from the main page for high-res images
+                        cdn_matches = set(re.findall(r'https://[^"\'\s<>]+\.cdninstagram\.com/[^"\'\s<>]+', main_content))
+                        for u in cdn_matches:
+                            clean_u = html_lib.unescape(u).replace("\\u0026", "&").replace("\\", "")
+                            if (
+                                (".jpg" in clean_u or ".webp" in clean_u)
+                                and any(
+                                    tag in clean_u for tag in ("t51.82787-15", "t51.2885-15", "p1080x1080", "s1080x1080", "c604")
+                                )
+                                and clean_u not in image_urls
+                            ):
+                                image_urls.append(clean_u)
             else:
                 async with httpx.AsyncClient(follow_redirects=True, timeout=12.0, headers=headers) as client:
                     resp = await client.get(url)

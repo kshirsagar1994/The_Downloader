@@ -55,15 +55,37 @@ class Settings(BaseSettings):
     YOUTUBE_VISITOR_DATA: str | None = None
     YOUTUBE_COOKIES: str | None = None
     YOUTUBE_COOKIES_FILE: str | None = None
-    COOKIES_FILE: str | None = None
     YOUTUBE_CLIENTS: str | None = None
     YT_DLP_UPDATE_CHANNEL: str = "stable"
     # Path to bgutil-ytdlp-pot-provider server directory for script-mode PO token generation
     BGUTIL_SCRIPT_HOME: str | None = None
 
+    # Instagram Authentication
+    INSTAGRAM_COOKIES: str | None = None
+    INSTAGRAM_COOKIES_FILE: str | None = None
+
+    # TikTok Authentication
+    TIKTOK_COOKIES: str | None = None
+    TIKTOK_COOKIES_FILE: str | None = None
+
+    # Snapchat Authentication
+    SNAPCHAT_COOKIES: str | None = None
+    SNAPCHAT_COOKIES_FILE: str | None = None
+
+    # Twitter/X Authentication
+    TWITTER_COOKIES: str | None = None
+    TWITTER_COOKIES_FILE: str | None = None
+
+    # Generic fallback cookies
+    COOKIES_FILE: str | None = None
+
     # Proxy Configuration (Residential / Datacenter Bypass)
     YOUTUBE_PROXY_URL: str | None = None
     YOUTUBE_PROXY: str | None = None
+    INSTAGRAM_PROXY_URL: str | None = None
+    TIKTOK_PROXY_URL: str | None = None
+    SNAPCHAT_PROXY_URL: str | None = None
+    TWITTER_PROXY_URL: str | None = None
     HTTP_PROXY: str | None = None
     HTTPS_PROXY: str | None = None
 
@@ -258,12 +280,105 @@ class Settings(BaseSettings):
             return str(default_cookie.resolve())
         return None
 
+    # -------------------------------------------------------------------------
+    # Platform-specific cookie resolution
+    # -------------------------------------------------------------------------
+    def _resolve_platform_cookiefile(
+        self, cookies_env: str | None, cookies_file_env: str | None
+    ) -> str | None:
+        """Generic cookie resolution for any platform."""
+        # 1. Dedicated file path
+        candidate_file = cookies_file_env or self.COOKIES_FILE
+        if candidate_file:
+            path = Path(candidate_file).resolve()
+            if path.exists() and path.is_file():
+                return str(path)
+
+        # 2. String/Base64 environment variable
+        if cookies_env and cookies_env.strip():
+            raw_content = cookies_env.strip()
+            import base64
+            import binascii
+            try:
+                decoded_bytes = base64.b64decode(raw_content, validate=True)
+                cookie_text = decoded_bytes.decode("utf-8")
+            except (binascii.Error, ValueError, UnicodeDecodeError):
+                cookie_text = raw_content
+
+            cookie_path = self.storage_path / f".auth_cookies_{hash(cookies_env) % 10000}.txt"
+            cookie_path.write_text(cookie_text, encoding="utf-8")
+            try:
+                cookie_path.chmod(0o600)
+            except (OSError, NotImplementedError):
+                pass
+            return str(cookie_path)
+
+        return None
+
+    @property
+    def resolved_instagram_cookiefile(self) -> str | None:
+        return self._resolve_platform_cookiefile(self.INSTAGRAM_COOKIES, self.INSTAGRAM_COOKIES_FILE)
+
+    @property
+    def resolved_tiktok_cookiefile(self) -> str | None:
+        return self._resolve_platform_cookiefile(self.TIKTOK_COOKIES, self.TIKTOK_COOKIES_FILE)
+
+    @property
+    def resolved_snapchat_cookiefile(self) -> str | None:
+        return self._resolve_platform_cookiefile(self.SNAPCHAT_COOKIES, self.SNAPCHAT_COOKIES_FILE)
+
+    @property
+    def resolved_twitter_cookiefile(self) -> str | None:
+        return self._resolve_platform_cookiefile(self.TWITTER_COOKIES, self.TWITTER_COOKIES_FILE)
+
+    # -------------------------------------------------------------------------
+    # Platform-specific proxy resolution
+    # -------------------------------------------------------------------------
+    @property
+    def resolved_instagram_proxy(self) -> str | None:
+        candidate = (
+            (self.INSTAGRAM_PROXY_URL and self.INSTAGRAM_PROXY_URL.strip())
+            or (self.HTTPS_PROXY and self.HTTPS_PROXY.strip())
+            or (self.HTTP_PROXY and self.HTTP_PROXY.strip())
+        )
+        return self._validate_proxy_url(candidate)
+
+    @property
+    def resolved_tiktok_proxy(self) -> str | None:
+        candidate = (
+            (self.TIKTOK_PROXY_URL and self.TIKTOK_PROXY_URL.strip())
+            or (self.HTTPS_PROXY and self.HTTPS_PROXY.strip())
+            or (self.HTTP_PROXY and self.HTTP_PROXY.strip())
+        )
+        return self._validate_proxy_url(candidate)
+
+    @property
+    def resolved_snapchat_proxy(self) -> str | None:
+        candidate = (
+            (self.SNAPCHAT_PROXY_URL and self.SNAPCHAT_PROXY_URL.strip())
+            or (self.HTTPS_PROXY and self.HTTPS_PROXY.strip())
+            or (self.HTTP_PROXY and self.HTTP_PROXY.strip())
+        )
+        return self._validate_proxy_url(candidate)
+
+    @property
+    def resolved_twitter_proxy(self) -> str | None:
+        candidate = (
+            (self.TWITTER_PROXY_URL and self.TWITTER_PROXY_URL.strip())
+            or (self.HTTPS_PROXY and self.HTTPS_PROXY.strip())
+            or (self.HTTP_PROXY and self.HTTP_PROXY.strip())
+        )
+        return self._validate_proxy_url(candidate)
+
     def cleanup_temp_cookies(self) -> None:
         """Safely cleans up temporary cookie artifacts from disk."""
         try:
             cookie_path = self.storage_path / ".auth_cookies.txt"
             if cookie_path.exists():
                 cookie_path.unlink(missing_ok=True)
+            # Clean up platform-specific cookies
+            for f in self.storage_path.glob(".auth_cookies_*.txt"):
+                f.unlink(missing_ok=True)
         except OSError:
             pass
 

@@ -73,21 +73,20 @@ def build_base_ydl_opts(
 ) -> dict[str, Any]:
     """
     Builds a secure, optimized base dictionary of yt-dlp options.
-    Automatically configures:
-    1. YouTube player clients matching provider capabilities
-    2. Dynamic BgUtils PO Token Provider (HTTP server or local script mode)
-    3. Cookiefile if configured
-    4. Isolated HTTP/HTTPS/SOCKS Proxy (YouTube proxy restricted to YouTube)
-    5. Timeouts, geo-bypass, safety limits
-    6. Structured logging with secret scrubbing
+    Automatically configures per-platform authentication, proxies, and extractor args.
     """
     current_settings = get_settings()
     is_youtube = bool(
         target_url and ("youtube.com" in target_url.lower() or "youtu.be" in target_url.lower())
     ) or (target_url is None)
+    is_instagram = bool(target_url and "instagram.com" in target_url.lower())
+    is_tiktok = bool(target_url and "tiktok.com" in target_url.lower())
+    is_snapchat = bool(target_url and "snapchat.com" in target_url.lower())
+    is_twitter = bool(target_url and ("twitter.com" in target_url.lower() or "x.com" in target_url.lower()))
 
     extractor_args: dict[str, dict[str, Any]] = {}
 
+    # YouTube-specific configuration
     if is_youtube:
         youtube_args: dict[str, Any] = {
             "player_client": current_settings.resolved_youtube_clients,
@@ -108,8 +107,6 @@ def build_base_ydl_opts(
             extractor_args["youtubepot-bgutilhttp"] = {
                 "base_url": [provider_url],
             }
-            # When PO Token Provider is active, ensure yt-dlp actively requests tokens
-            # rather than skipping them under 'auto' policy:
             youtube_args["fetch_pot"] = ["always"]
             youtube_args["pot_trace"] = ["true"]
         elif current_settings.resolved_bgutil_script_home:
@@ -120,6 +117,18 @@ def build_base_ydl_opts(
             youtube_args["pot_trace"] = ["true"]
 
         extractor_args["youtube"] = youtube_args
+
+    # Instagram-specific configuration
+    if is_instagram:
+        ig_args: dict[str, Any] = {}
+        # Instagram often requires login for posts
+        ig_args["fetch_comments"] = ["false"]
+        extractor_args["instagram"] = ig_args
+
+    # TikTok, Snapchat, and Twitter/X extractor args are intentionally omitted:
+    # yt-dlp uses class-derived keys (e.g. "TikTok", "SnapchatSpotlight") internally,
+    # and these platforms currently need no custom extractor_args.
+    # Platform-specific cookies and proxies are handled below.
 
     opts: dict[str, Any] = {
         "quiet": False,
@@ -144,13 +153,33 @@ def build_base_ydl_opts(
     if js_runtime:
         opts["js_runtimes"] = js_runtime
 
-    if current_settings.resolved_cookiefile:
+    # Platform-specific cookiefile
+    if is_youtube and current_settings.resolved_cookiefile:
+        opts["cookiefile"] = current_settings.resolved_cookiefile
+    elif is_instagram and current_settings.resolved_instagram_cookiefile:
+        opts["cookiefile"] = current_settings.resolved_instagram_cookiefile
+    elif is_tiktok and current_settings.resolved_tiktok_cookiefile:
+        opts["cookiefile"] = current_settings.resolved_tiktok_cookiefile
+    elif is_snapchat and current_settings.resolved_snapchat_cookiefile:
+        opts["cookiefile"] = current_settings.resolved_snapchat_cookiefile
+    elif is_twitter and current_settings.resolved_twitter_cookiefile:
+        opts["cookiefile"] = current_settings.resolved_twitter_cookiefile
+    elif current_settings.resolved_cookiefile:
+        # Fallback to generic cookies
         opts["cookiefile"] = current_settings.resolved_cookiefile
 
-    # Isolated Proxy Handling: Only assign YouTube proxy to YouTube requests
+    # Platform-specific proxy handling
     if target_url:
         if is_youtube and current_settings.resolved_youtube_proxy:
             opts["proxy"] = current_settings.resolved_youtube_proxy
+        elif is_instagram and current_settings.resolved_instagram_proxy:
+            opts["proxy"] = current_settings.resolved_instagram_proxy
+        elif is_tiktok and current_settings.resolved_tiktok_proxy:
+            opts["proxy"] = current_settings.resolved_tiktok_proxy
+        elif is_snapchat and current_settings.resolved_snapchat_proxy:
+            opts["proxy"] = current_settings.resolved_snapchat_proxy
+        elif is_twitter and current_settings.resolved_twitter_proxy:
+            opts["proxy"] = current_settings.resolved_twitter_proxy
         elif not is_youtube and current_settings.resolved_global_proxy:
             opts["proxy"] = current_settings.resolved_global_proxy
     elif current_settings.resolved_proxy:

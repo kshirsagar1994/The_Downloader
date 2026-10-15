@@ -112,8 +112,7 @@ def classify_ytdlp_error(exc: Exception, url: str) -> DownloaderException:
             details=err_str,
         )
 
-    import re
-    if any(k in err_msg for k in ("confirm your age", "sign in to confirm your age", "age-restricted", "age restricted")) or re.search(r"\bage\b", err_msg):
+    if any(k in err_msg for k in ("confirm your age", "sign in to confirm your age", "age-restricted", "age restricted", "age-gated", "age gate", "age verification")):
         return AuthenticationRequiredError(
             message="This content is age-restricted and requires account authentication.",
             user_action="Configure authorized cookies for an age-verified account.",
