@@ -48,7 +48,9 @@ def main():
     else:
         print("Notice: No CSS bundle file found to inline.")
 
-    # 2. Inject CSS directly into every HTML file if not already present
+    # 2. Inject CSS and runtime API URL meta tag directly into every HTML file
+    api_url = os.environ.get("NEXT_PUBLIC_API_URL", "https://the-downloader-nlb5.onrender.com").strip().rstrip("/")
+    meta_api_tag = f'<meta name="api-base-url" content="{api_url}">'
     html_count = 0
     for root, _, files in os.walk(OUT_DIR):
         for file in files:
@@ -57,17 +59,29 @@ def main():
                 with open(filepath, "r", encoding="utf-8") as f:
                     html = f.read()
 
+                modified = False
                 if "id=\"inlined-app-css\"" not in html and css_content:
                     if "</head>" in html:
                         html = html.replace(
                             "</head>",
                             f"<style id=\"inlined-app-css\">{css_content}</style></head>",
                         )
-                        with open(filepath, "w", encoding="utf-8") as f:
-                            f.write(html)
-                        html_count += 1
+                        modified = True
 
-    print(f"Inlined application CSS into {html_count} HTML page(s).")
+                if 'name="api-base-url"' not in html:
+                    if "<head>" in html:
+                        html = html.replace("<head>", f"<head>\n    {meta_api_tag}")
+                        modified = True
+                    elif "</head>" in html:
+                        html = html.replace("</head>", f"    {meta_api_tag}\n</head>")
+                        modified = True
+
+                if modified:
+                    with open(filepath, "w", encoding="utf-8") as f:
+                        f.write(html)
+                    html_count += 1
+
+    print(f"Inlined application CSS and runtime API meta tag ({api_url}) into {html_count} HTML page(s).")
 
     # 3. Replace '_next/' references with 'assets/' across all build text files
     ref_count = 0
@@ -131,6 +145,10 @@ def main():
   RewriteRule ^_next/ - [L]
   RewriteCond %{REQUEST_URI} \\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|webp|json|txt|xml)$ [NC]
   RewriteRule ^ - [L]
+
+  # NEVER rewrite API requests or undefined endpoints to index.html with 200 OK
+  RewriteRule ^api/ - [R=404,L]
+  RewriteRule ^undefined/ - [R=404,L]
 
   # Clean URLs: Serve .html files if matching name exists (e.g. /faq -> /faq.html)
   RewriteCond %{REQUEST_FILENAME} !-f

@@ -4,7 +4,7 @@ import * as React from "react";
 import { Download, Loader2, CheckCircle2, AlertCircle, XCircle, FileCheck, Sparkles, RefreshCw, Share2, Check } from "lucide-react";
 import { JobProgressEvent } from "../types/media";
 import { formatBytes, formatSpeed, formatEta } from "../lib/utils";
-import { API_BASE_URL } from "../lib/api";
+import { API_BASE_URL, getApiBaseUrl } from "../lib/api";
 
 interface DownloadProgressProps {
   job: JobProgressEvent;
@@ -75,14 +75,15 @@ export function DownloadProgress({ job, onCancel, onReset }: DownloadProgressPro
   const badge = getStatusBadge();
 
   const getTargetUrl = () => {
+    const apiBase = getApiBaseUrl();
     if (job.download_url) {
       if (job.download_url.startsWith("http://") || job.download_url.startsWith("https://")) {
         return job.download_url;
       }
       const cleanPath = job.download_url.startsWith("/") ? job.download_url : `/${job.download_url}`;
-      return `${API_BASE_URL}${cleanPath}`;
+      return `${apiBase}${cleanPath}`;
     }
-    return `${API_BASE_URL}/api/download/${job.job_id}`;
+    return `${apiBase}/api/download/${job.job_id}`;
   };
 
   // Trigger file download to device without navigating or resetting SPA state

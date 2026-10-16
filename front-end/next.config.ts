@@ -5,6 +5,9 @@ const nextConfig: NextConfig = {
   output: "export",
   outputFileTracingRoot: path.resolve(__dirname, ".."),
   reactStrictMode: true,
+  env: {
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || "https://the-downloader-nlb5.onrender.com",
+  },
   images: {
     unoptimized: true,
     remotePatterns: [

@@ -15,7 +15,7 @@ from app.core.errors import (
     OperationTimeoutError,
 )
 from app.core.logging import logger
-from app.schemas.media import ExtractionResult, MediaImageItem
+from app.schemas.media import ExtractionResult, MediaFormatOption, MediaImageItem
 from app.security.ssrf import validate_url_ssrf
 from app.services.error_classifier import classify_ytdlp_error
 from app.services.metadata_service import MetadataService
@@ -120,7 +120,7 @@ class YtDlpService:
             is_social_platform = any(p in validated_url.lower() for p in ("instagram", "pinterest", "twitter.com", "x.com"))
             is_login_hint = "only works when logged-in" in err_msg
 
-            if is_no_media_error or (is_social_platform and is_login_hint):
+            if is_no_media_error or is_social_platform:
                 try:
                     social_result = await cls._extract_social_media_images(validated_url)
                     if social_result:
@@ -315,6 +315,14 @@ class YtDlpService:
                             if clean_og not in image_urls:
                                 image_urls.append(clean_og)
 
+                        # Extract the OG video if this is a video post or reel
+                        video_urls: list[str] = []
+                        og_vid = re.search(r'<meta property="og:video(?::secure_url)?" content="([^"]+)"', main_content)
+                        if og_vid:
+                            clean_vid = html_lib.unescape(og_vid.group(1)).replace("\\u0026", "&").replace("\\", "")
+                            if clean_vid not in video_urls:
+                                video_urls.append(clean_vid)
+
                         # Discover carousel slides: look for linked shortcodes in the page source
                         # Instagram carousel posts embed slide shortcodes in the page source
                         carousel_shortcodes = re.findall(
@@ -342,6 +350,14 @@ class YtDlpService:
                                         clean_slide = html_lib.unescape(slide_og.group(1)).replace("\\u0026", "&").replace("\\", "")
                                         if clean_slide not in image_urls:
                                             image_urls.append(clean_slide)
+                                    slide_vid = re.search(
+                                        r'<meta property="og:video(?::secure_url)?" content="([^"]+)"',
+                                        slide_resp.text,
+                                    )
+                                    if slide_vid:
+                                        clean_svid = html_lib.unescape(slide_vid.group(1)).replace("\\u0026", "&").replace("\\", "")
+                                        if clean_svid not in video_urls:
+                                            video_urls.append(clean_svid)
                             except Exception as e:  # noqa: BLE001
                                 logger.debug(f"Failed to fetch carousel slide {sc}: {e}")
 
@@ -381,7 +397,13 @@ class YtDlpService:
                     clean_og = html_lib.unescape(og_img.group(1)).replace("\\u0026", "&").replace("\\", "")
                     image_urls.append(clean_og)
 
-            if not image_urls:
+                video_urls = []
+                og_vid = re.search(r'<meta property="og:video(?::secure_url)?" content="([^"]+)"', content)
+                if og_vid:
+                    clean_vid = html_lib.unescape(og_vid.group(1)).replace("\\u0026", "&").replace("\\", "")
+                    video_urls.append(clean_vid)
+
+            if not image_urls and not video_urls:
                 return None
 
             items = [
@@ -399,18 +421,42 @@ class YtDlpService:
                 for i, img_url in enumerate(image_urls)
             ]
 
-            media_type = "gallery" if len(items) > 1 else "image"
+            video_formats = [
+                MediaFormatOption(
+                    format_id=f"social_video_{i+1}",
+                    label=f"Direct MP4 Stream {i+1}" if len(video_urls) > 1 else "Direct MP4 Stream",
+                    extension="mp4",
+                    quality="HD",
+                    resolution="Original",
+                    filesize_approx=None,
+                    has_video=True,
+                    has_audio=True,
+                    is_best=(i == 0),
+                    vcodec="h264",
+                    acodec="aac",
+                    fps=30.0,
+                    url=v_url,
+                )
+                for i, v_url in enumerate(video_urls)
+            ]
+
+            if video_formats:
+                media_type = "video"
+            elif len(items) > 1:
+                media_type = "gallery"
+            else:
+                media_type = "image"
 
             return ExtractionResult(
                 url=url,
                 type=media_type,
                 title=title,
-                thumbnail=items[0].url if items else "",
+                thumbnail=items[0].url if items else (video_urls[0] if video_urls else ""),
                 duration=None,
                 uploader=uploader,
                 platform=platform,
                 description=desc,
-                video_formats=[],
+                video_formats=video_formats,
                 audio_formats=[],
                 images=items,
                 playlist_items=[],
@@ -418,5 +464,5 @@ class YtDlpService:
                 created_at=datetime.datetime.now(datetime.UTC).isoformat(),
             )
         except Exception as exc:  # noqa: BLE001
-            logger.warning(f"Failed to extract social images for {url}: {exc}")
+            logger.warning(f"Failed to extract social media for {url}: {exc}")
             return None

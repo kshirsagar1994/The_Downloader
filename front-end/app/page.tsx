@@ -24,7 +24,7 @@ import {
   Cpu,
 } from "lucide-react";
 
-import { extractMedia, createJob, cancelJob, ApiError, API_BASE_URL } from "../lib/api";
+import { extractMedia, createJob, cancelJob, ApiError, API_BASE_URL, getApiBaseUrl } from "../lib/api";
 import { AdsterraBanner } from "../components/ads/AdsterraBanner";
 import { AdsterraNativeBanner } from "../components/ads/AdsterraNativeBanner";
 import { AdsterraSmartlinkBanner } from "../components/ads/AdsterraSmartlink";
@@ -64,15 +64,23 @@ function DownloaderApp() {
       const userAction = err instanceof ApiError ? err.userAction : undefined;
       const retryable = err instanceof ApiError ? (err.retryable ?? true) : true;
       const jobId = err instanceof ApiError ? err.jobId : undefined;
+      const errorTitle =
+        code === "BOT_VERIFICATION_REQUIRED"
+          ? "Verification Required"
+          : code === "AUTHENTICATION_REQUIRED"
+          ? "Authentication Required"
+          : code === "RATE_LIMITED"
+          ? "Rate Limited"
+          : "Extraction Error";
       setErrorInfo({
-        title: code === "BOT_VERIFICATION_REQUIRED" ? "Verification Required" : "Extraction Error",
+        title: errorTitle,
         message,
         code,
         userAction,
         retryable,
         jobId,
       });
-      showToast(code === "BOT_VERIFICATION_REQUIRED" ? "Verification Required" : "Extraction Failed", message, "error");
+      showToast(errorTitle, message, "error");
     } finally {
       setIsLoading(false);
     }
@@ -110,7 +118,7 @@ function DownloaderApp() {
 
   // SSE Subscription
   const subscribeToJobEvents = (jobId: string) => {
-    const eventSource = new EventSource(`${API_BASE_URL}/api/jobs/${jobId}/events`);
+    const eventSource = new EventSource(`${getApiBaseUrl()}/api/jobs/${jobId}/events`);
 
     eventSource.onmessage = (event) => {
       try {

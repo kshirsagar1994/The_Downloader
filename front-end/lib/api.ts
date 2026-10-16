@@ -32,6 +32,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
   try {
     data = text ? JSON.parse(text) : null;
   } catch {
+    const isHtml = text.trim().startsWith("<") || text.includes("<html") || text.includes("<!DOCTYPE");
     // Non-JSON response (e.g., 500 HTML/plain text from proxy/server)
     if (!response.ok) {
       if (response.status === 500 || response.status === 502 || response.status === 503 || response.status === 504) {
@@ -42,6 +43,14 @@ async function handleResponse<T>(response: Response): Promise<T> {
           true
         );
       }
+      if (response.status === 404) {
+        throw new ApiError(
+          `API endpoint not found (404) at ${response.url}. Please verify that the backend API URL is configured properly.`,
+          "ENDPOINT_NOT_FOUND",
+          404,
+          false
+        );
+      }
       throw new ApiError(
         `Server responded with error (${response.status}): ${text.slice(0, 100) || response.statusText}`,
         "SERVER_ERROR",
@@ -49,6 +58,17 @@ async function handleResponse<T>(response: Response): Promise<T> {
         false
       );
     }
+
+    if (isHtml) {
+      throw new ApiError(
+        "The server returned an HTML page instead of API JSON data. Please verify that your backend API server is online and that NEXT_PUBLIC_API_URL is properly configured.",
+        "INVALID_RESPONSE",
+        response.status,
+        true,
+        "Verify that your backend server (e.g. Render or local port 8000) is online and accepting requests."
+      );
+    }
+
     throw new ApiError("Received invalid response from server.", "INVALID_RESPONSE", response.status);
   }
 
@@ -73,25 +93,62 @@ async function handleResponse<T>(response: Response): Promise<T> {
   return data as T;
 }
 
-function getApiBaseUrl(): string {
-  if (process.env.NEXT_PUBLIC_API_URL) {
-    let url = process.env.NEXT_PUBLIC_API_URL.trim().replace(/\/+$/, "");
+/**
+ * Resolves the backend API base URL dynamically at runtime.
+ * Prioritizes:
+ * 1. Runtime window/document override (window.__API_BASE_URL__ or <meta name="api-base-url" content="...">)
+ * 2. Inlined NEXT_PUBLIC_API_URL environment variable
+ * 3. Browser localhost/127.0.0.1 loopback detection
+ * 4. Production Render fallback: https://the-downloader-nlb5.onrender.com
+ */
+export function getApiBaseUrl(): string {
+  // 1. Runtime window or meta tag override (enables shared hosting / cPanel override without rebuild)
+  if (typeof window !== "undefined") {
+    const win = window as any;
+    if (win.__API_BASE_URL__ && typeof win.__API_BASE_URL__ === "string" && win.__API_BASE_URL__.trim()) {
+      return win.__API_BASE_URL__.trim().replace(/\/+$/, "");
+    }
+    try {
+      const meta = document.querySelector('meta[name="api-base-url"]');
+      if (meta) {
+        const content = meta.getAttribute("content");
+        if (content && content.trim() && !content.includes("__API_BASE_URL__")) {
+          return content.trim().replace(/\/+$/, "");
+        }
+      }
+    } catch {
+      // DOM access fallback
+    }
+  }
+
+  // 2. Next.js inlined environment variable
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (envUrl && typeof envUrl === "string" && envUrl.trim() && envUrl !== "undefined" && envUrl !== "null") {
+    let url = envUrl.trim().replace(/\/+$/, "");
     if (!url.startsWith("http://") && !url.startsWith("https://")) {
       url = url.includes("localhost") || url.includes("127.0.0.1") ? `http://${url}` : `https://${url}`;
     }
     return url;
   }
-  if (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
-    return "http://127.0.0.1:8000";
+
+  // 3. Localhost / loopback browser detection
+  if (typeof window !== "undefined") {
+    const hostname = window.location.hostname;
+    if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "0.0.0.0") {
+      return "http://127.0.0.1:8000";
+    }
   }
+
+  // 4. Default production backend
   return "https://the-downloader-nlb5.onrender.com";
 }
 
-export const API_BASE_URL = getApiBaseUrl();
+export const API_BASE_URL = "https://the-downloader-nlb5.onrender.com";
 
 export async function extractMedia(url: string): Promise<ExtractionResult> {
+  const baseUrl = getApiBaseUrl();
   try {
-    const response = await fetch(`${API_BASE_URL}/api/extract`, {
+    const response = await fetch(`${baseUrl}/api/extract`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url }),
@@ -112,8 +169,9 @@ export async function extractMedia(url: string): Promise<ExtractionResult> {
 }
 
 export async function createJob(request: CreateJobRequest): Promise<{ job_id: string }> {
+  const baseUrl = getApiBaseUrl();
   try {
-    const response = await fetch(`${API_BASE_URL}/api/jobs`, {
+    const response = await fetch(`${baseUrl}/api/jobs`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(request),
@@ -134,8 +192,9 @@ export async function createJob(request: CreateJobRequest): Promise<{ job_id: st
 }
 
 export async function cancelJob(jobId: string): Promise<void> {
+  const baseUrl = getApiBaseUrl();
   try {
-    const response = await fetch(`${API_BASE_URL}/api/jobs/${jobId}/cancel`, {
+    const response = await fetch(`${baseUrl}/api/jobs/${jobId}/cancel`, {
       method: "POST",
     });
     await handleResponse<{ success: boolean }>(response);
@@ -146,6 +205,7 @@ export async function cancelJob(jobId: string): Promise<void> {
 }
 
 export async function getJobStatus(jobId: string): Promise<JobProgressEvent> {
-  const response = await fetch(`${API_BASE_URL}/api/jobs/${jobId}`);
+  const baseUrl = getApiBaseUrl();
+  const response = await fetch(`${baseUrl}/api/jobs/${jobId}`);
   return handleResponse<JobProgressEvent>(response);
 }
